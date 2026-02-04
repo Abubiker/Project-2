@@ -10,33 +10,35 @@
           </div>
         </div>
         <nav class="flex items-center gap-4 text-sm text-slate">
-          <RouterLink to="/dashboard" v-slot="{ href, navigate, isActive }">
-            <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Дашборд</a>
-          </RouterLink>
-          <RouterLink to="/clients" v-slot="{ href, navigate, isActive }">
-            <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Клиенты</a>
-          </RouterLink>
-          <RouterLink to="/templates" v-slot="{ href, navigate, isActive }">
-            <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Шаблоны</a>
-          </RouterLink>
-          <RouterLink to="/invoices/new" v-slot="{ href, navigate, isActive }">
-            <a
-              :href="href"
-              @click="navigate"
-              :class="newInvoiceClass(isActive)"
-            >
-              Новый счет
-            </a>
-          </RouterLink>
-          <RouterLink v-if="!isAuthed" to="/login" v-slot="{ href, navigate, isActive }">
-            <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Войти</a>
-          </RouterLink>
-          <RouterLink v-if="!isAuthed" to="/register" v-slot="{ href, navigate, isActive }">
-            <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Регистрация</a>
-          </RouterLink>
-          <button v-if="isAuthed" class="text-slate hover:text-ink" @click="logout">
-            Выход
-          </button>
+          <template v-if="isAuthed">
+            <RouterLink to="/dashboard" v-slot="{ href, navigate, isActive }">
+              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Дашборд</a>
+            </RouterLink>
+            <RouterLink to="/clients" v-slot="{ href, navigate, isActive }">
+              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Клиенты</a>
+            </RouterLink>
+            <RouterLink to="/templates" v-slot="{ href, navigate, isActive }">
+              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Шаблоны</a>
+            </RouterLink>
+            <RouterLink to="/invoices/new" v-slot="{ href, navigate, isActive }">
+              <a
+                :href="href"
+                @click="navigate"
+                :class="newInvoiceClass(isActive)"
+              >
+                Новый счет
+              </a>
+            </RouterLink>
+            <button class="text-slate hover:text-ink" @click="logout">Выход</button>
+          </template>
+          <template v-else>
+            <RouterLink to="/login" v-slot="{ href, navigate, isActive }">
+              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Войти</a>
+            </RouterLink>
+            <RouterLink to="/register" v-slot="{ href, navigate, isActive }">
+              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Регистрация</a>
+            </RouterLink>
+          </template>
         </nav>
       </div>
     </header>

@@ -6,11 +6,23 @@
     <form @submit.prevent="handleLogin" class="space-y-4">
       <div>
         <label class="text-sm text-slate">Email</label>
-        <input v-model="email" type="email" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+        <input
+          v-model="email"
+          type="email"
+          :class="inputClass(errors.email)"
+          class="mt-2 w-full rounded-xl border px-4 py-3"
+        />
+        <p v-if="errors.email" class="mt-1 text-xs text-coral">{{ errors.email }}</p>
       </div>
       <div>
         <label class="text-sm text-slate">Пароль</label>
-        <input v-model="password" type="password" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+        <input
+          v-model="password"
+          type="password"
+          :class="inputClass(errors.password)"
+          class="mt-2 w-full rounded-xl border px-4 py-3"
+        />
+        <p v-if="errors.password" class="mt-1 text-xs text-coral">{{ errors.password }}</p>
       </div>
 
       <button class="w-full rounded-xl bg-ink text-white py-3 font-semibold">
@@ -35,20 +47,26 @@ const router = useRouter();
 const email = ref("");
 const password = ref("");
 const error = ref("");
+const errors = ref({ email: "", password: "" });
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function inputClass(hasError) {
+  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
+}
 
 async function handleLogin() {
   error.value = "";
+  errors.value = { email: "", password: "" };
   if (!email.value.trim()) {
-    error.value = "Укажите email.";
+    errors.value.email = "Обязательно к заполнению.";
     return;
   }
   if (!emailPattern.test(email.value.trim())) {
-    error.value = "Email указан неверно.";
+    errors.value.email = "Email указан неверно.";
     return;
   }
   if (!password.value.trim()) {
-    error.value = "Укажите пароль.";
+    errors.value.password = "Обязательно к заполнению.";
     return;
   }
   try {
@@ -60,6 +78,10 @@ async function handleLogin() {
     router.push("/dashboard");
   } catch (err) {
     error.value = err.message;
+    if (err.message.toLowerCase().includes("invalid email or password")) {
+      errors.value.email = "Неверный email или пароль.";
+      errors.value.password = "Неверный email или пароль.";
+    }
   }
 }
 </script>
