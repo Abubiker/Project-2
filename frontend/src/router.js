@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage.vue";
 import ClientsPage from "./pages/ClientsPage.vue";
 import TemplatesPage from "./pages/TemplatesPage.vue";
 import InvoiceCreatePage from "./pages/InvoiceCreatePage.vue";
+import ProfilePage from "./pages/ProfilePage.vue";
 
 const routes = [
   { path: "/", redirect: "/dashboard" },
@@ -15,6 +16,7 @@ const routes = [
   { path: "/clients", component: ClientsPage, meta: { requiresAuth: true } },
   { path: "/templates", component: TemplatesPage, meta: { requiresAuth: true } },
   { path: "/invoices/new", component: InvoiceCreatePage, meta: { requiresAuth: true } },
+  { path: "/profile", component: ProfilePage, meta: { requiresAuth: true } },
 ];
 
 const router = createRouter({

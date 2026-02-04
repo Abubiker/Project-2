@@ -70,4 +70,5 @@ export const api = {
   updateTemplate: (id, payload) => request(`/templates/${id}`, { method: "PUT", body: payload }),
   deleteTemplate: (id) => request(`/templates/${id}`, { method: "DELETE" }),
   getNextInvoiceNumber: () => request("/invoices/next-number"),
+  changePassword: (payload) => request("/auth/password", { method: "PATCH", body: payload }),
 };

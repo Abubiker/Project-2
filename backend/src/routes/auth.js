@@ -32,6 +32,11 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+});
+
 router.post("/register", async (req, res, next) => {
   try {
     const data = registerSchema.parse(req.body);
@@ -104,6 +109,37 @@ router.get("/me", authRequired, async (req, res, next) => {
     res.json({ user: result.rows[0] });
   } catch (error) {
     next(error);
+  }
+});
+
+router.patch("/password", authRequired, async (req, res, next) => {
+  try {
+    const data = changePasswordSchema.parse(req.body);
+
+    const result = await db.query(
+      "SELECT id, password_hash FROM users WHERE id = $1",
+      [req.user.id]
+    );
+
+    if (!result.rows.length) {
+      throw createHttpError(404, "User not found");
+    }
+
+    const user = result.rows[0];
+    const isValid = await bcrypt.compare(data.currentPassword, user.password_hash);
+    if (!isValid) {
+      throw createHttpError(401, "Current password is incorrect");
+    }
+
+    const newHash = await bcrypt.hash(data.newPassword, 10);
+    await db.query("UPDATE users SET password_hash = $1 WHERE id = $2", [newHash, req.user.id]);
+
+    res.json({ ok: true });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
   }
 });
 
