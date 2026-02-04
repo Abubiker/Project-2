@@ -62,6 +62,18 @@
         </div>
       </div>
     </div>
+
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+      <div
+        v-for="toast in toastState.items"
+        :key="toast.id"
+        :class="toastClass(toast.tone)"
+        class="rounded-2xl px-4 py-3 text-sm shadow-lg cursor-pointer"
+        @click="removeToast(toast.id)"
+      >
+        {{ toast.message }}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -70,6 +82,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { RouterLink, RouterView } from "vue-router";
 import { api, clearToken, getToken } from "./api";
+import { toastState, removeToast } from "./toast";
 
 const router = useRouter();
 const isAuthed = ref(Boolean(getToken()));
@@ -107,6 +120,17 @@ function logout() {
 function confirmLogout() {
   showLogoutConfirm.value = false;
   logout();
+}
+
+function toastClass(tone) {
+  switch (tone) {
+    case "danger":
+      return "bg-coral text-white";
+    case "success":
+      return "bg-ink text-white";
+    default:
+      return "bg-ink text-white";
+  }
 }
 
 async function fetchUser() {

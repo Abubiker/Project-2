@@ -72,4 +72,5 @@ export const api = {
   getNextInvoiceNumber: () => request("/invoices/next-number"),
   changePassword: (payload) => request("/auth/password", { method: "PATCH", body: payload }),
   updateProfile: (payload) => request("/auth/me", { method: "PATCH", body: payload }),
+  deleteInvoice: (id) => request(`/invoices/${id}`, { method: "DELETE" }),
 };

@@ -116,24 +116,17 @@
     </div>
   </div>
 
-  <div
-    v-if="toastMessage"
-    class="fixed bottom-6 right-6 z-50 rounded-2xl bg-ink text-white px-4 py-3 text-sm shadow-lg"
-  >
-    {{ toastMessage }}
-  </div>
 </template>
 
 <script setup>
 import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { api } from "../api";
+import { pushToast } from "../toast";
 
 const templates = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
-const toastMessage = ref("");
-let toastTimer = null;
 const errors = ref({ name: "", items: "" });
 const itemErrors = ref([]);
 const selectedTemplate = ref(null);
@@ -239,11 +232,7 @@ async function handleCreate() {
     const data = await api.createTemplate(payload);
     templates.value = [data.template, ...templates.value];
     resetForm();
-    toastMessage.value = `Шаблон ${data.template.name} создан.`;
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toastMessage.value = "";
-    }, 3000);
+    pushToast({ message: `Шаблон ${data.template.name} создан.`, tone: "success" });
   } catch (err) {
     formError.value = err.message;
   }
@@ -252,7 +241,11 @@ async function handleCreate() {
 async function removeTemplate(id) {
   try {
     await api.deleteTemplate(id);
+    const removed = templates.value.find((template) => template.id === id);
     templates.value = templates.value.filter((template) => template.id !== id);
+    if (removed) {
+      pushToast({ message: `Шаблон ${removed.name} удален`, tone: "danger" });
+    }
   } catch (err) {
     error.value = err.message;
   }
@@ -265,6 +258,5 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onEsc);
-  if (toastTimer) clearTimeout(toastTimer);
 });
 </script>

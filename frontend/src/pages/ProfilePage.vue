@@ -278,11 +278,26 @@ function onAvatarChange(event) {
     avatarError.value = "Максимальный размер файла — 3MB.";
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    profileForm.avatarUrl = reader.result;
+  const img = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  img.onload = () => {
+    const size = Math.min(img.width, img.height);
+    const sx = Math.floor((img.width - size) / 2);
+    const sy = Math.floor((img.height - size) / 2);
+    const canvas = document.createElement("canvas");
+    const target = 256;
+    canvas.width = target;
+    canvas.height = target;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, sx, sy, size, size, 0, 0, target, target);
+    profileForm.avatarUrl = canvas.toDataURL("image/jpeg", 0.9);
+    URL.revokeObjectURL(objectUrl);
   };
-  reader.readAsDataURL(file);
+  img.onerror = () => {
+    avatarError.value = "Не удалось обработать изображение.";
+    URL.revokeObjectURL(objectUrl);
+  };
+  img.src = objectUrl;
 }
 
 async function handleProfileSave() {

@@ -89,24 +89,17 @@
     </div>
   </div>
 
-  <div
-    v-if="toastMessage"
-    class="fixed bottom-6 right-6 z-50 rounded-2xl bg-ink text-white px-4 py-3 text-sm shadow-lg"
-  >
-    {{ toastMessage }}
-  </div>
 </template>
 
 <script setup>
 import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { api } from "../api";
+import { pushToast } from "../toast";
 
 const clients = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
-const toastMessage = ref("");
-let toastTimer = null;
 const errors = ref({ name: "", email: "" });
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const selectedClient = ref(null);
@@ -184,11 +177,7 @@ async function handleCreate() {
     const data = await api.createClient(payload);
     clients.value = [data.client, ...clients.value];
     resetForm();
-    toastMessage.value = `Клиент ${data.client.name} создан.`;
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toastMessage.value = "";
-    }, 3000);
+    pushToast({ message: `Клиент ${data.client.name} создан.`, tone: "success" });
   } catch (err) {
     formError.value = err.message;
   }
@@ -197,7 +186,11 @@ async function handleCreate() {
 async function removeClient(id) {
   try {
     await api.deleteClient(id);
+    const removed = clients.value.find((client) => client.id === id);
     clients.value = clients.value.filter((client) => client.id !== id);
+    if (removed) {
+      pushToast({ message: `Клиент ${removed.name} удален`, tone: "danger" });
+    }
   } catch (err) {
     error.value = err.message;
   }
@@ -210,6 +203,5 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onEsc);
-  if (toastTimer) clearTimeout(toastTimer);
 });
 </script>

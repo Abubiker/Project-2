@@ -107,6 +107,9 @@
             <button class="rounded-full border border-black/10 px-3 py-1 text-xs" @click="sendEmail(invoice)">
               Email
             </button>
+            <button class="rounded-full border border-black/10 px-3 py-1 text-xs text-coral" @click="deleteInvoice(invoice)">
+              Удалить
+            </button>
           </div>
         </div>
 
@@ -121,18 +124,13 @@
     </section>
   </div>
 
-  <div
-    v-if="toastMessage"
-    class="fixed bottom-6 right-6 z-50 rounded-2xl bg-ink text-white px-4 py-3 text-sm shadow-lg"
-  >
-    {{ toastMessage }}
-  </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { api, getToken } from "../api";
+import { pushToast } from "../toast";
 
 const invoices = ref([]);
 const clients = ref([]);
@@ -140,8 +138,6 @@ const templates = ref([]);
 const loading = ref(false);
 const error = ref("");
 const actionMessage = ref("");
-const toastMessage = ref("");
-let toastTimer = null;
 const searchTerm = ref("");
 const statusFilter = ref("all");
 
@@ -240,12 +236,11 @@ onMounted(async () => {
   error.value = "";
   const createdNumber = sessionStorage.getItem("invoice_created");
   if (createdNumber) {
-    toastMessage.value =
-      createdNumber === "Счет создан" ? "Счет успешно создан" : `Счет ${createdNumber} создан`;
+    pushToast({
+      message: createdNumber === "Счет создан" ? "Счет успешно создан" : `Счет ${createdNumber} создан`,
+      tone: "success",
+    });
     sessionStorage.removeItem("invoice_created");
-    toastTimer = setTimeout(() => {
-      toastMessage.value = "";
-    }, 3500);
   }
   try {
     const [invoicesData, clientsData, templatesData] = await Promise.all([
@@ -263,11 +258,7 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-  }
-});
+onUnmounted(() => {});
 
 async function downloadPdf(invoice) {
   actionMessage.value = "";
@@ -303,6 +294,18 @@ async function sendEmail(invoice) {
   try {
     await api.sendInvoiceEmail(invoice.id, to ? { to } : {});
     actionMessage.value = `Счет ${invoice.number} отправлен.`;
+  } catch (err) {
+    actionMessage.value = err.message;
+  }
+}
+
+async function deleteInvoice(invoice) {
+  const confirmDelete = window.confirm(`Удалить счет ${invoice.number}?`);
+  if (!confirmDelete) return;
+  try {
+    await api.deleteInvoice(invoice.id);
+    invoices.value = invoices.value.filter((item) => item.id !== invoice.id);
+    pushToast({ message: `Счет ${invoice.number} удален`, tone: "danger" });
   } catch (err) {
     actionMessage.value = err.message;
   }
