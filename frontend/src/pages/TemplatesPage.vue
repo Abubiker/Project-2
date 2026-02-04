@@ -13,7 +13,8 @@
         <div
           v-for="template in templates"
           :key="template.id"
-          class="border border-black/5 rounded-2xl p-4 flex items-start justify-between"
+          class="border border-black/5 rounded-2xl p-4 flex items-start justify-between cursor-pointer hover:border-black/10"
+          @click="openTemplate(template)"
         >
           <div>
             <div class="font-semibold">{{ template.name }}</div>
@@ -21,7 +22,7 @@
               Валюта: {{ template.data?.currency || "USD" }} · Налог: {{ template.data?.taxPercent || 0 }}%
             </div>
           </div>
-          <button class="text-xs text-coral" @click="removeTemplate(template.id)">
+          <button class="text-xs text-coral" @click.stop="removeTemplate(template.id)">
             Удалить
           </button>
         </div>
@@ -86,6 +87,31 @@
         <p v-if="formError" class="text-sm text-coral">{{ formError }}</p>
       </form>
     </section>
+
+    <div v-if="selectedTemplate" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-lg font-semibold">{{ selectedTemplate.name }}</h3>
+            <p class="text-sm text-slate">Валюта: {{ selectedTemplate.data?.currency || "USD" }}</p>
+          </div>
+          <button class="text-sm text-slate hover:text-ink" @click="closeModal">Закрыть</button>
+        </div>
+        <div class="mt-4 space-y-2 text-sm">
+          <div><span class="text-slate">Налог:</span> {{ selectedTemplate.data?.taxPercent || 0 }}%</div>
+          <div><span class="text-slate">Комментарий:</span> {{ selectedTemplate.data?.notes || "—" }}</div>
+          <div>
+            <div class="text-slate mb-1">Позиции:</div>
+            <div v-if="!selectedTemplate.data?.items?.length" class="text-slate">Нет позиций</div>
+            <ul v-else class="space-y-1">
+              <li v-for="(item, index) in selectedTemplate.data.items" :key="index">
+                {{ item.description }} — {{ item.quantity }} × {{ item.unitPrice }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -97,6 +123,7 @@ const templates = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
+const selectedTemplate = ref(null);
 
 const form = reactive({
   name: "",
@@ -112,6 +139,14 @@ function resetForm() {
   form.taxPercent = 0;
   form.notes = "";
   form.items = [{ description: "", quantity: 1, unitPrice: 0 }];
+}
+
+function openTemplate(template) {
+  selectedTemplate.value = template;
+}
+
+function closeModal() {
+  selectedTemplate.value = null;
 }
 
 async function fetchTemplates() {

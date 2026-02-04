@@ -275,10 +275,6 @@ async function handleSave() {
     formError.value = "Выберите клиента.";
     return;
   }
-  if (!form.number) {
-    formError.value = "Укажите номер счета.";
-    return;
-  }
   const filteredItems = form.items.filter((item) => item.description.trim());
   if (!filteredItems.length) {
     formError.value = "Добавьте хотя бы одну позицию.";

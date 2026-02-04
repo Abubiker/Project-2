@@ -13,14 +13,15 @@
         <div
           v-for="client in clients"
           :key="client.id"
-          class="border border-black/5 rounded-2xl p-4 flex items-start justify-between"
+          class="border border-black/5 rounded-2xl p-4 flex items-start justify-between cursor-pointer hover:border-black/10"
+          @click="openClient(client)"
         >
           <div>
             <div class="font-semibold">{{ client.name }}</div>
             <div class="text-sm text-slate">{{ client.company || "Компания не указана" }}</div>
             <div class="text-xs text-slate">{{ client.email || "Email не указан" }}</div>
           </div>
-          <button class="text-xs text-coral" @click="removeClient(client.id)">
+          <button class="text-xs text-coral" @click.stop="removeClient(client.id)">
             Удалить
           </button>
         </div>
@@ -65,6 +66,25 @@
         <p v-if="formError" class="text-sm text-coral">{{ formError }}</p>
       </form>
     </section>
+
+    <div v-if="selectedClient" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-lg font-semibold">{{ selectedClient.name }}</h3>
+            <p class="text-sm text-slate">{{ selectedClient.company || "Компания не указана" }}</p>
+          </div>
+          <button class="text-sm text-slate hover:text-ink" @click="closeModal">Закрыть</button>
+        </div>
+        <div class="mt-4 space-y-2 text-sm">
+          <div><span class="text-slate">Email:</span> {{ selectedClient.email || "Не указан" }}</div>
+          <div><span class="text-slate">Телефон:</span> {{ selectedClient.phone || "Не указан" }}</div>
+          <div><span class="text-slate">Адрес:</span> {{ selectedClient.address || "Не указан" }}</div>
+          <div><span class="text-slate">ИНН / Tax ID:</span> {{ selectedClient.taxId || "Не указан" }}</div>
+          <div><span class="text-slate">Создан:</span> {{ selectedClient.createdAt || "—" }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -76,6 +96,7 @@ const clients = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
+const selectedClient = ref(null);
 
 const form = reactive({
   name: "",
@@ -93,6 +114,14 @@ function resetForm() {
   form.phone = "";
   form.address = "";
   form.taxId = "";
+}
+
+function openClient(client) {
+  selectedClient.value = client;
+}
+
+function closeModal() {
+  selectedClient.value = null;
 }
 
 async function fetchClients() {
