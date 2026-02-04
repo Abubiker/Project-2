@@ -7,15 +7,51 @@
       <div v-if="loading" class="text-slate">Загрузка...</div>
       <div v-else-if="error" class="text-coral">{{ error }}</div>
 
-      <div v-else class="space-y-4 text-sm">
-        <div>
-          <div class="text-slate">Имя</div>
-          <div class="font-semibold">{{ user?.name }}</div>
+      <div v-else class="space-y-6">
+        <div class="flex items-center gap-4">
+          <div class="h-16 w-16 rounded-full bg-ink/10 overflow-hidden grid place-items-center text-lg font-semibold text-ink">
+            <img v-if="profileForm.avatarUrl" :src="profileForm.avatarUrl" alt="Avatar" class="h-full w-full object-cover" />
+            <span v-else>{{ initials }}</span>
+          </div>
+          <div>
+            <div class="text-sm text-slate">Аватар</div>
+            <div class="flex items-center gap-3 mt-2">
+              <button
+                type="button"
+                class="rounded-full border border-black/10 px-4 py-2 text-xs font-semibold"
+                @click="triggerAvatar"
+              >
+                Загрузить
+              </button>
+              <button
+                v-if="profileForm.avatarUrl"
+                type="button"
+                class="text-xs text-coral"
+                @click="removeAvatar"
+              >
+                Удалить
+              </button>
+            </div>
+            <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
+            <p v-if="avatarError" class="mt-2 text-xs text-coral">{{ avatarError }}</p>
+          </div>
         </div>
-        <div>
-          <div class="text-slate">Email</div>
-          <div class="font-semibold">{{ user?.email }}</div>
-        </div>
+
+        <form @submit.prevent="handleProfileSave" class="space-y-4 text-sm">
+          <div>
+            <label class="text-slate">Имя</label>
+            <input v-model="profileForm.name" :class="inputClass(profileErrors.name)" class="mt-2 w-full rounded-xl border px-4 py-3" />
+            <p v-if="profileErrors.name" class="mt-1 text-xs text-coral">{{ profileErrors.name }}</p>
+          </div>
+          <div>
+            <label class="text-slate">Email</label>
+            <input v-model="profileForm.email" :class="inputClass(profileErrors.email)" class="mt-2 w-full rounded-xl border px-4 py-3" />
+            <p v-if="profileErrors.email" class="mt-1 text-xs text-coral">{{ profileErrors.email }}</p>
+          </div>
+          <button class="w-full rounded-xl bg-ink text-white py-3 font-semibold">Сохранить профиль</button>
+          <p v-if="profileSuccess" class="text-sm text-mint">{{ profileSuccess }}</p>
+          <p v-if="profileError" class="text-sm text-coral">{{ profileError }}</p>
+        </form>
       </div>
     </section>
 
@@ -72,6 +108,21 @@
         <p v-if="formError" class="text-sm text-coral">{{ formError }}</p>
       </form>
     </section>
+
+    <div v-if="confirmPasswordChange" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="confirmPasswordChange = false">
+      <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg">
+        <h3 class="text-lg font-semibold mb-2">Подтвердить смену пароля?</h3>
+        <p class="text-sm text-slate mb-6">Вы уверены, что хотите обновить пароль?</p>
+        <div class="flex items-center justify-end gap-3">
+          <button class="rounded-full border border-black/10 px-4 py-2 text-sm" @click="confirmPasswordChange = false">
+            Отмена
+          </button>
+          <button class="rounded-full bg-ink text-white px-4 py-2 text-sm" @click="confirmChangePassword">
+            Подтвердить
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -84,12 +135,27 @@ const loading = ref(false);
 const error = ref("");
 const success = ref("");
 const formError = ref("");
+const profileSuccess = ref("");
+const profileError = ref("");
+const avatarError = ref("");
+const confirmPasswordChange = ref(false);
+const pendingPasswordPayload = ref(null);
+
+const fileInput = ref(null);
 
 const form = reactive({
   currentPassword: "",
   newPassword: "",
   confirmPassword: "",
 });
+
+const profileForm = reactive({
+  name: "",
+  email: "",
+  avatarUrl: "",
+});
+
+const profileErrors = ref({ name: "", email: "" });
 
 const errors = ref({
   currentPassword: "",
@@ -111,12 +177,22 @@ const passwordRules = computed(() => {
   ];
 });
 
+const initials = computed(() => {
+  const name = profileForm.name || user.value?.name || user.value?.email || "";
+  const parts = name.trim().split(" ");
+  const initial = parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0]?.[0] || "U";
+  return initial.toUpperCase();
+});
+
 async function loadUser() {
   loading.value = true;
   error.value = "";
   try {
     const data = await api.me();
     user.value = data.user;
+    profileForm.name = data.user.name || "";
+    profileForm.email = data.user.email || "";
+    profileForm.avatarUrl = data.user.avatarUrl || "";
   } catch (err) {
     error.value = err.message;
   } finally {
@@ -161,15 +237,83 @@ async function handleChangePassword() {
     return;
   }
 
+  pendingPasswordPayload.value = {
+    currentPassword: form.currentPassword,
+    newPassword: form.newPassword,
+  };
+  confirmPasswordChange.value = true;
+}
+
+async function confirmChangePassword() {
+  if (!pendingPasswordPayload.value) return;
+  confirmPasswordChange.value = false;
   try {
-    await api.changePassword({
-      currentPassword: form.currentPassword,
-      newPassword: form.newPassword,
-    });
+    await api.changePassword(pendingPasswordPayload.value);
     success.value = "Пароль обновлен.";
     resetForm();
   } catch (err) {
     formError.value = err.message;
+  } finally {
+    pendingPasswordPayload.value = null;
+  }
+}
+
+function triggerAvatar() {
+  fileInput.value?.click();
+}
+
+function removeAvatar() {
+  profileForm.avatarUrl = "";
+}
+
+function onAvatarChange(event) {
+  avatarError.value = "";
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    avatarError.value = "Можно загружать только изображения.";
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    avatarError.value = "Максимальный размер файла — 1MB.";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    profileForm.avatarUrl = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function handleProfileSave() {
+  profileErrors.value = { name: "", email: "" };
+  profileError.value = "";
+  profileSuccess.value = "";
+
+  if (!profileForm.name.trim()) {
+    profileErrors.value.name = "Обязательно к заполнению.";
+  }
+  if (!profileForm.email.trim()) {
+    profileErrors.value.email = "Обязательно к заполнению.";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email.trim())) {
+    profileErrors.value.email = "Email указан неверно.";
+  }
+
+  if (profileErrors.value.name || profileErrors.value.email) {
+    return;
+  }
+
+  try {
+    const data = await api.updateProfile({
+      name: profileForm.name.trim(),
+      email: profileForm.email.trim().toLowerCase(),
+      avatarUrl: profileForm.avatarUrl || null,
+    });
+    user.value = data.user;
+    profileSuccess.value = "Профиль обновлен.";
+    window.dispatchEvent(new Event("auth-changed"));
+  } catch (err) {
+    profileError.value = err.message;
   }
 }
 

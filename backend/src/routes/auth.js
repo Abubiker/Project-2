@@ -102,7 +102,10 @@ router.post("/login", async (req, res, next) => {
 
 router.get("/me", authRequired, async (req, res, next) => {
   try {
-    const result = await db.query("SELECT id, email, name FROM users WHERE id = $1", [req.user.id]);
+    const result = await db.query(
+      'SELECT id, email, name, avatar_url AS "avatarUrl" FROM users WHERE id = $1',
+      [req.user.id]
+    );
     if (!result.rows.length) {
       throw createHttpError(404, "User not found");
     }
@@ -135,6 +138,65 @@ router.patch("/password", authRequired, async (req, res, next) => {
     await db.query("UPDATE users SET password_hash = $1 WHERE id = $2", [newHash, req.user.id]);
 
     res.json({ ok: true });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
+  }
+});
+
+router.patch("/me", authRequired, async (req, res, next) => {
+  const updateSchema = z.object({
+    name: z.string().trim().min(1).optional(),
+    email: emailSchema.optional(),
+    avatarUrl: z.string().max(200000).nullable().optional(),
+  });
+
+  try {
+    const data = updateSchema.parse(req.body);
+
+    if (data.email) {
+      const existing = await db.query(
+        "SELECT id FROM users WHERE email = $1 AND id <> $2",
+        [data.email, req.user.id]
+      );
+      if (existing.rows.length) {
+        throw createHttpError(409, "Email already registered");
+      }
+    }
+
+    const updates = [];
+    const values = [];
+    let index = 1;
+
+    if (data.name !== undefined) {
+      updates.push(`name = $${index++}`);
+      values.push(data.name);
+    }
+    if (data.email !== undefined) {
+      updates.push(`email = $${index++}`);
+      values.push(data.email);
+    }
+    if (data.avatarUrl !== undefined) {
+      updates.push(`avatar_url = $${index++}`);
+      values.push(data.avatarUrl);
+    }
+
+    if (!updates.length) {
+      throw createHttpError(400, "Nothing to update");
+    }
+
+    values.push(req.user.id);
+
+    const result = await db.query(
+      `UPDATE users SET ${updates.join(", ")}
+       WHERE id = $${index}
+       RETURNING id, email, name, avatar_url AS "avatarUrl"`,
+      values
+    );
+
+    res.json({ user: result.rows[0] });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return next(createValidationError(error));
