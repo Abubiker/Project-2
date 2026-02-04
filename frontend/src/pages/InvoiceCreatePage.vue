@@ -328,7 +328,7 @@ async function handleSave() {
   }
 
   try {
-    await api.createInvoice({
+    const created = await api.createInvoice({
       clientId: form.clientId,
       templateId: form.templateId || null,
       number: form.number ? form.number.trim() : null,
@@ -344,6 +344,12 @@ async function handleSave() {
         unitPrice: Number(item.unitPrice || 0),
       })),
     });
+    const createdNumber = created?.invoice?.number;
+    if (createdNumber) {
+      sessionStorage.setItem("invoice_created", createdNumber);
+    } else {
+      sessionStorage.setItem("invoice_created", "Счет создан");
+    }
     router.push("/dashboard");
   } catch (err) {
     formError.value = err.message;

@@ -120,10 +120,17 @@
       <div v-if="actionMessage" class="mt-4 text-sm text-slate">{{ actionMessage }}</div>
     </section>
   </div>
+
+  <div
+    v-if="toastMessage"
+    class="fixed bottom-6 right-6 z-50 rounded-2xl bg-ink text-white px-4 py-3 text-sm shadow-lg"
+  >
+    {{ toastMessage }}
+  </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { api, getToken } from "../api";
 
@@ -133,6 +140,8 @@ const templates = ref([]);
 const loading = ref(false);
 const error = ref("");
 const actionMessage = ref("");
+const toastMessage = ref("");
+let toastTimer = null;
 const searchTerm = ref("");
 const statusFilter = ref("all");
 
@@ -229,6 +238,15 @@ const searchResults = computed(() => {
 onMounted(async () => {
   loading.value = true;
   error.value = "";
+  const createdNumber = sessionStorage.getItem("invoice_created");
+  if (createdNumber) {
+    toastMessage.value =
+      createdNumber === "Счет создан" ? "Счет успешно создан" : `Счет ${createdNumber} создан`;
+    sessionStorage.removeItem("invoice_created");
+    toastTimer = setTimeout(() => {
+      toastMessage.value = "";
+    }, 3500);
+  }
   try {
     const [invoicesData, clientsData, templatesData] = await Promise.all([
       api.listInvoices(),
@@ -242,6 +260,12 @@ onMounted(async () => {
     error.value = err.message;
   } finally {
     loading.value = false;
+  }
+});
+
+onUnmounted(() => {
+  if (toastTimer) {
+    clearTimeout(toastTimer);
   }
 });
 
