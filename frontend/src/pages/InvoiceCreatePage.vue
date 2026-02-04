@@ -35,12 +35,17 @@
             <RouterLink to="/clients" class="text-ink font-semibold">Перейти к клиентам</RouterLink>
           </div>
           <div v-else>
-            <select v-model="form.clientId" class="w-full rounded-xl border border-black/10 px-4 py-3">
+            <select
+              v-model="form.clientId"
+              :class="inputClass(errors.clientId)"
+              class="w-full rounded-xl border px-4 py-3"
+            >
               <option value="">Выберите клиента</option>
               <option v-for="client in clients" :key="client.id" :value="client.id">
                 {{ client.name }} — {{ client.company || "Без компании" }}
               </option>
             </select>
+            <p v-if="errors.clientId" class="mt-1 text-xs text-coral">{{ errors.clientId }}</p>
           </div>
         </div>
 
@@ -78,7 +83,8 @@
               <input
                 v-model="item.description"
                 placeholder="Описание услуги"
-                class="rounded-xl border border-black/10 px-4 py-3"
+                :class="inputClass(itemErrors[index]?.description)"
+                class="rounded-xl border px-4 py-3"
               />
               <input
                 v-model.number="item.quantity"
@@ -86,7 +92,8 @@
                 min="0.01"
                 step="0.01"
                 placeholder="Кол-во"
-                class="rounded-xl border border-black/10 px-4 py-3"
+                :class="inputClass(itemErrors[index]?.quantity)"
+                class="rounded-xl border px-4 py-3"
               />
               <input
                 v-model.number="item.unitPrice"
@@ -94,7 +101,8 @@
                 min="0"
                 step="0.01"
                 placeholder="Цена"
-                class="rounded-xl border border-black/10 px-4 py-3"
+                :class="inputClass(itemErrors[index]?.unitPrice)"
+                class="rounded-xl border px-4 py-3"
               />
               <div class="text-right text-sm text-slate">
                 {{ formatMoney(item.quantity * item.unitPrice) }}
@@ -108,6 +116,7 @@
               </button>
             </div>
           </div>
+          <p v-if="errors.items" class="mt-2 text-xs text-coral">{{ errors.items }}</p>
           <button class="mt-4 text-sm text-ink font-semibold" @click="addItem">
             + Добавить позицию
           </button>
@@ -179,6 +188,8 @@ const templates = ref([]);
 const templatesLoading = ref(false);
 const templatesError = ref("");
 const formError = ref("");
+const errors = ref({ clientId: "", items: "" });
+const itemErrors = ref([]);
 const autoNumberPlaceholder = ref("AUTO-INV-0001");
 
 function formatDate(date) {
@@ -219,6 +230,10 @@ const totalAmount = computed(() => subtotal.value + taxAmount.value);
 
 function formatMoney(value) {
   return Number(value || 0).toFixed(2);
+}
+
+function inputClass(hasError) {
+  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
 }
 
 function addItem() {
@@ -281,13 +296,34 @@ watch(selectedTemplate, (template) => {
 
 async function handleSave() {
   formError.value = "";
+  errors.value = { clientId: "", items: "" };
+  itemErrors.value = [];
+
   if (!form.clientId) {
-    formError.value = "Выберите клиента.";
-    return;
+    errors.value.clientId = "Обязательно к заполнению.";
   }
+
   const filteredItems = form.items.filter((item) => item.description.trim());
+
+  form.items.forEach((item, index) => {
+    const itemError = { description: "", quantity: "", unitPrice: "" };
+    if (!item.description.trim()) itemError.description = "Заполните описание.";
+    if (!item.quantity || Number(item.quantity) <= 0) itemError.quantity = "Укажите количество.";
+    if (Number(item.unitPrice) < 0) itemError.unitPrice = "Цена не может быть отрицательной.";
+    itemErrors.value[index] = itemError;
+  });
+
+  const hasItemErrors = itemErrors.value.some(
+    (item) => item.description || item.quantity || item.unitPrice
+  );
+
   if (!filteredItems.length) {
-    formError.value = "Добавьте хотя бы одну позицию.";
+    errors.value.items = "Добавьте хотя бы одну позицию.";
+  } else if (hasItemErrors) {
+    errors.value.items = "Заполните обязательные поля в позициях.";
+  }
+
+  if (errors.value.clientId || errors.value.items) {
     return;
   }
 

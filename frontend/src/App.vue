@@ -43,7 +43,9 @@
     </header>
 
     <main class="px-6 py-10">
-      <RouterView />
+      <div class="page-enter">
+        <RouterView />
+      </div>
     </main>
 
     <div v-if="showLogoutConfirm" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="showLogoutConfirm = false">

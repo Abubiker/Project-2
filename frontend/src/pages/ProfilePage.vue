@@ -274,8 +274,8 @@ function onAvatarChange(event) {
     avatarError.value = "Можно загружать только изображения.";
     return;
   }
-  if (file.size > 1024 * 1024) {
-    avatarError.value = "Максимальный размер файла — 1MB.";
+  if (file.size > 3 * 1024 * 1024) {
+    avatarError.value = "Максимальный размер файла — 3MB.";
     return;
   }
   const reader = new FileReader();
