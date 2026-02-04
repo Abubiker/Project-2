@@ -88,6 +88,13 @@
       </div>
     </div>
   </div>
+
+  <div
+    v-if="toastMessage"
+    class="fixed bottom-6 right-6 z-50 rounded-2xl bg-ink text-white px-4 py-3 text-sm shadow-lg"
+  >
+    {{ toastMessage }}
+  </div>
 </template>
 
 <script setup>
@@ -98,6 +105,8 @@ const clients = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
+const toastMessage = ref("");
+let toastTimer = null;
 const errors = ref({ name: "", email: "" });
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const selectedClient = ref(null);
@@ -175,6 +184,11 @@ async function handleCreate() {
     const data = await api.createClient(payload);
     clients.value = [data.client, ...clients.value];
     resetForm();
+    toastMessage.value = `Клиент ${data.client.name} создан.`;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastMessage.value = "";
+    }, 3000);
   } catch (err) {
     formError.value = err.message;
   }
@@ -196,5 +210,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onEsc);
+  if (toastTimer) clearTimeout(toastTimer);
 });
 </script>
