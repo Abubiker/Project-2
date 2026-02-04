@@ -5,9 +5,9 @@
         <div class="flex items-center gap-4">
           <RouterLink to="/dashboard" class="flex items-center">
             <img
-              src="/abuinv-logo.svg"
+              src="/abuinv-logo.png"
               alt="AbuInv"
-              class="h-10 w-auto"
+              class="h-20 w-auto"
             />
           </RouterLink>
           <div v-if="isAuthed" ref="searchRef" class="relative w-full max-w-sm">
@@ -61,8 +61,9 @@
             </RouterLink>
             <RouterLink to="/profile" v-slot="{ href, navigate, isActive }">
               <a :href="href" @click="navigate" :class="navLinkClass(isActive)" class="flex items-center gap-2">
-                <span class="h-8 w-8 rounded-full bg-ink text-white grid place-items-center text-xs font-semibold">
-                  {{ userInitials }}
+                <span class="h-8 w-8 rounded-full bg-ink/10 text-ink grid place-items-center text-xs font-semibold overflow-hidden">
+                  <img v-if="user?.avatarUrl" :src="user.avatarUrl" alt="Avatar" class="h-full w-full object-cover" />
+                  <span v-else>{{ userInitials }}</span>
                 </span>
                 Профиль
               </a>
@@ -102,7 +103,7 @@
       </div>
     </div>
 
-    <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+    <div class="fixed top-6 right-6 z-50 flex flex-col gap-2">
       <div
         v-for="toast in toastState.items"
         :key="toast.id"
@@ -176,7 +177,7 @@ function toastClass(tone) {
     case "danger":
       return "bg-coral text-white";
     case "success":
-      return "bg-ink text-white";
+      return "bg-mint text-white";
     default:
       return "bg-ink text-white";
   }

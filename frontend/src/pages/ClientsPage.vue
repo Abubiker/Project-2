@@ -123,7 +123,9 @@ function resetForm() {
 }
 
 function inputClass(hasError) {
-  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
+  return hasError
+    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
+    : "border-black/10";
 }
 
 function openClient(client) {
@@ -177,9 +179,10 @@ async function handleCreate() {
     const data = await api.createClient(payload);
     clients.value = [data.client, ...clients.value];
     resetForm();
-    pushToast({ message: `Клиент ${data.client.name} создан.`, tone: "success" });
+    pushToast({ message: "Клиент создан", tone: "success" });
   } catch (err) {
     formError.value = err.message;
+    pushToast({ message: err.message || "Ошибка создания клиента", tone: "danger" });
   }
 }
 
@@ -189,10 +192,11 @@ async function removeClient(id) {
     const removed = clients.value.find((client) => client.id === id);
     clients.value = clients.value.filter((client) => client.id !== id);
     if (removed) {
-      pushToast({ message: `Клиент ${removed.name} удален`, tone: "danger" });
+      pushToast({ message: "Клиент удален", tone: "danger" });
     }
   } catch (err) {
     error.value = err.message;
+    pushToast({ message: err.message || "Ошибка удаления клиента", tone: "danger" });
   }
 }
 

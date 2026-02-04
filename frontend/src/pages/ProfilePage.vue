@@ -31,6 +31,7 @@
               >
                 Удалить
               </button>
+              <span v-if="avatarSaving" class="text-xs text-slate">Сохранение...</span>
             </div>
             <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
             <p v-if="avatarError" class="mt-2 text-xs text-coral">{{ avatarError }}</p>
@@ -129,6 +130,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
 import { api } from "../api";
+import { pushToast } from "../toast";
 
 const user = ref(null);
 const loading = ref(false);
@@ -140,6 +142,7 @@ const profileError = ref("");
 const avatarError = ref("");
 const confirmPasswordChange = ref(false);
 const pendingPasswordPayload = ref(null);
+const avatarSaving = ref(false);
 
 const fileInput = ref(null);
 
@@ -164,7 +167,9 @@ const errors = ref({
 });
 
 function inputClass(hasError) {
-  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
+  return hasError
+    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
+    : "border-black/10";
 }
 
 const passwordRules = computed(() => {
@@ -264,6 +269,7 @@ function triggerAvatar() {
 
 function removeAvatar() {
   profileForm.avatarUrl = "";
+  saveAvatar();
 }
 
 function onAvatarChange(event) {
@@ -292,12 +298,29 @@ function onAvatarChange(event) {
     ctx.drawImage(img, sx, sy, size, size, 0, 0, target, target);
     profileForm.avatarUrl = canvas.toDataURL("image/jpeg", 0.9);
     URL.revokeObjectURL(objectUrl);
+    saveAvatar();
   };
   img.onerror = () => {
     avatarError.value = "Не удалось обработать изображение.";
     URL.revokeObjectURL(objectUrl);
   };
   img.src = objectUrl;
+}
+
+async function saveAvatar() {
+  avatarSaving.value = true;
+  try {
+    const data = await api.updateProfile({ avatarUrl: profileForm.avatarUrl || null });
+    user.value = data.user;
+    profileForm.avatarUrl = data.user.avatarUrl || "";
+    pushToast({ message: "Аватар обновлен", tone: "success" });
+    window.dispatchEvent(new Event("auth-changed"));
+  } catch (err) {
+    avatarError.value = err.message || "Не удалось сохранить аватар.";
+    pushToast({ message: avatarError.value, tone: "danger" });
+  } finally {
+    avatarSaving.value = false;
+  }
 }
 
 async function handleProfileSave() {

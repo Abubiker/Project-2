@@ -139,7 +139,7 @@ onMounted(async () => {
   const createdNumber = sessionStorage.getItem("invoice_created");
   if (createdNumber) {
     pushToast({
-      message: createdNumber === "Счет создан" ? "Счет успешно создан" : `Счет ${createdNumber} создан`,
+      message: "Счет создан",
       tone: "success",
     });
     sessionStorage.removeItem("invoice_created");
@@ -201,9 +201,10 @@ async function deleteInvoice(invoice) {
   try {
     await api.deleteInvoice(invoice.id);
     invoices.value = invoices.value.filter((item) => item.id !== invoice.id);
-    pushToast({ message: `Счет ${invoice.number} удален`, tone: "danger" });
+    pushToast({ message: "Счет удален", tone: "danger" });
   } catch (err) {
     actionMessage.value = err.message;
+    pushToast({ message: err.message || "Ошибка удаления счета", tone: "danger" });
   }
 }
 </script>

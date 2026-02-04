@@ -233,7 +233,9 @@ function formatMoney(value) {
 }
 
 function inputClass(hasError) {
-  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
+  return hasError
+    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
+    : "border-black/10";
 }
 
 function addItem() {

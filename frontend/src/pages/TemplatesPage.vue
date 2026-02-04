@@ -58,6 +58,12 @@
 
         <div>
           <label class="text-sm text-slate">Позиции по умолчанию</label>
+          <div class="mt-3 grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] text-xs text-slate">
+            <div>Описание</div>
+            <div>Кол-во</div>
+            <div>Цена</div>
+            <div></div>
+          </div>
           <div class="space-y-3 mt-2">
             <div
               v-for="(item, index) in form.items"
@@ -148,7 +154,9 @@ function resetForm() {
 }
 
 function inputClass(hasError) {
-  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
+  return hasError
+    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
+    : "border-black/10";
 }
 
 function openTemplate(template) {
@@ -232,9 +240,10 @@ async function handleCreate() {
     const data = await api.createTemplate(payload);
     templates.value = [data.template, ...templates.value];
     resetForm();
-    pushToast({ message: `Шаблон ${data.template.name} создан.`, tone: "success" });
+    pushToast({ message: "Шаблон создан", tone: "success" });
   } catch (err) {
     formError.value = err.message;
+    pushToast({ message: err.message || "Ошибка создания шаблона", tone: "danger" });
   }
 }
 
@@ -244,10 +253,11 @@ async function removeTemplate(id) {
     const removed = templates.value.find((template) => template.id === id);
     templates.value = templates.value.filter((template) => template.id !== id);
     if (removed) {
-      pushToast({ message: `Шаблон ${removed.name} удален`, tone: "danger" });
+      pushToast({ message: "Шаблон удален", tone: "danger" });
     }
   } catch (err) {
     error.value = err.message;
+    pushToast({ message: err.message || "Ошибка удаления шаблона", tone: "danger" });
   }
 }
 
