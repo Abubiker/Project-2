@@ -2,7 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const db = require("../db");
 const { authRequired } = require("../middleware/auth");
-const { createHttpError } = require("../utils/errors");
+const { createHttpError, createValidationError } = require("../utils/errors");
 
 const router = express.Router();
 
@@ -44,7 +44,7 @@ router.post("/", async (req, res, next) => {
     res.status(201).json({ client: result.rows[0] });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return next(createHttpError(400, "Invalid input"));
+      return next(createValidationError(error));
     }
     return next(error);
   }
@@ -66,7 +66,7 @@ router.put("/:id", async (req, res, next) => {
     res.json({ client: result.rows[0] });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return next(createHttpError(400, "Invalid input"));
+      return next(createValidationError(error));
     }
     return next(error);
   }

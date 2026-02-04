@@ -35,9 +35,16 @@ app.use((_req, _res, next) => {
 // Error handler
 app.use((err, _req, res, _next) => {
   const status = err.status || 500;
-  res.status(status).json({
+  if (status >= 500) {
+    console.error(err);
+  }
+  const payload = {
     error: err.message || "Internal server error",
-  });
+  };
+  if (err.details) {
+    payload.details = err.details;
+  }
+  res.status(status).json(payload);
 });
 
 module.exports = app;

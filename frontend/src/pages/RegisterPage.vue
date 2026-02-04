@@ -38,6 +38,18 @@ const error = ref("");
 
 async function handleRegister() {
   error.value = "";
+  if (!name.value.trim()) {
+    error.value = "Укажите имя.";
+    return;
+  }
+  if (!email.value.trim()) {
+    error.value = "Укажите email.";
+    return;
+  }
+  if (password.value.length < 6) {
+    error.value = "Пароль должен быть минимум 6 символов.";
+    return;
+  }
   try {
     const response = await api.register({
       name: name.value,

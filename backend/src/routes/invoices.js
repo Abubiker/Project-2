@@ -2,7 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const db = require("../db");
 const { authRequired } = require("../middleware/auth");
-const { createHttpError } = require("../utils/errors");
+const { createHttpError, createValidationError } = require("../utils/errors");
 const { generateInvoiceNumber } = require("../utils/invoiceNumber");
 const { buildInvoicePdf } = require("../utils/invoicePdf");
 const { createTransport } = require("../utils/mailer");
@@ -149,7 +149,7 @@ router.post("/", async (req, res, next) => {
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof z.ZodError) {
-      return next(createHttpError(400, "Invalid input"));
+      return next(createValidationError(error));
     }
     return next(error);
   } finally {
@@ -226,7 +226,7 @@ router.put("/:id", async (req, res, next) => {
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof z.ZodError) {
-      return next(createHttpError(400, "Invalid input"));
+      return next(createValidationError(error));
     }
     return next(error);
   } finally {
@@ -271,7 +271,7 @@ router.patch("/:id/status", async (req, res, next) => {
     res.json({ invoice: result.rows[0] });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return next(createHttpError(400, "Invalid input"));
+      return next(createValidationError(error));
     }
     return next(error);
   }
@@ -372,7 +372,7 @@ router.post("/:id/send-email", async (req, res, next) => {
     res.json({ ok: true, message: "Email sent" });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return next(createHttpError(400, "Invalid input"));
+      return next(createValidationError(error));
     }
     return next(error);
   }

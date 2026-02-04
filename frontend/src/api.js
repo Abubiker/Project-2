@@ -34,6 +34,10 @@ async function request(path, { method = "GET", body } = {}) {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
+    if (error.details && Array.isArray(error.details)) {
+      const details = error.details.map((item) => item.message).join(", ");
+      throw new Error(`${error.error || "Request failed"}: ${details}`);
+    }
     throw new Error(error.error || "Request failed");
   }
 

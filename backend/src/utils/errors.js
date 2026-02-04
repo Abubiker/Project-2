@@ -4,6 +4,13 @@ function createHttpError(status, message) {
   return error;
 }
 
+function createValidationError(zodError) {
+  const error = createHttpError(400, "Invalid input");
+  error.details = zodError.errors;
+  return error;
+}
+
 module.exports = {
   createHttpError,
+  createValidationError,
 };

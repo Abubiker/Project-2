@@ -38,6 +38,14 @@ const error = ref("");
 
 async function handleLogin() {
   error.value = "";
+  if (!email.value.trim()) {
+    error.value = "Укажите email.";
+    return;
+  }
+  if (!password.value.trim()) {
+    error.value = "Укажите пароль.";
+    return;
+  }
   try {
     const response = await api.login({ email: email.value, password: password.value });
     setToken(response.token);
