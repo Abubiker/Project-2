@@ -1,5 +1,17 @@
 <template>
   <div class="max-w-6xl mx-auto space-y-8">
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold">Мои счета</h1>
+        <p class="text-slate">Все ваши счета в одном месте.</p>
+      </div>
+      <RouterLink
+        to="/invoices/new"
+        class="rounded-xl bg-ink text-white px-4 py-2 text-sm font-semibold"
+      >
+        Создать счет
+      </RouterLink>
+    </header>
     <section class="grid gap-6 lg:grid-cols-3">
       <div class="rounded-3xl bg-white p-6 shadow-sm border border-black/5">
         <div class="text-sm text-slate">Счетов</div>
@@ -17,13 +29,7 @@
 
     <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold">Последние счета</h2>
-        <RouterLink
-          to="/invoices/new"
-          class="rounded-xl bg-mint text-white px-4 py-2 text-sm font-semibold"
-        >
-          Создать счет
-        </RouterLink>
+        <h2 class="text-xl font-semibold">Список счетов</h2>
       </div>
 
       <div v-if="loading" class="text-slate">Загрузка...</div>

@@ -12,16 +12,13 @@
         <nav class="flex items-center gap-4 text-sm text-slate">
           <template v-if="isAuthed">
             <RouterLink to="/dashboard" v-slot="{ href, navigate, isActive }">
-              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Дашборд</a>
+              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Мои счета</a>
             </RouterLink>
             <RouterLink to="/clients" v-slot="{ href, navigate, isActive }">
               <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Клиенты</a>
             </RouterLink>
             <RouterLink to="/templates" v-slot="{ href, navigate, isActive }">
               <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Шаблоны</a>
-            </RouterLink>
-            <RouterLink to="/invoices/new" v-slot="{ href, navigate, isActive }">
-              <a :href="href" @click="navigate" :class="navLinkClass(isActive)">Новый счет</a>
             </RouterLink>
             <RouterLink to="/profile" v-slot="{ href, navigate, isActive }">
               <a :href="href" @click="navigate" :class="navLinkClass(isActive)" class="flex items-center gap-2">
