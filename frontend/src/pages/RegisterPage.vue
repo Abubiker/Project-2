@@ -16,7 +16,21 @@
       </div>
       <div>
         <label class="text-sm text-slate">Пароль</label>
-        <input v-model="password" type="password" :class="inputClass(errors.password)" class="mt-2 w-full rounded-xl border px-4 py-3" />
+        <div class="relative mt-2">
+          <input
+            v-model="password"
+            :type="showPassword ? 'text' : 'password'"
+            :class="inputClass(errors.password)"
+            class="w-full rounded-xl border px-4 py-3 pr-12"
+          />
+          <button
+            type="button"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate hover:text-ink"
+            @click="showPassword = !showPassword"
+          >
+            {{ showPassword ? "Скрыть" : "Показать" }}
+          </button>
+        </div>
         <p v-if="errors.password" class="mt-1 text-xs text-coral">{{ errors.password }}</p>
       </div>
 
@@ -39,6 +53,7 @@ const email = ref("");
 const password = ref("");
 const error = ref("");
 const errors = ref({ name: "", email: "", password: "" });
+const showPassword = ref(false);
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
