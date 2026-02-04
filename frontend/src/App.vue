@@ -2,13 +2,13 @@
   <div class="min-h-screen bg-sand">
     <header class="px-6 py-5 border-b border-black/10 bg-white/70 backdrop-blur">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-6">
-          <RouterLink to="/dashboard" class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-2xl bg-mint text-white grid place-items-center font-semibold">IG</div>
-            <div>
-              <div class="text-lg font-semibold">AbubInvoiced</div>
-              <div class="text-xs text-slate">Быстрое выставление счетов</div>
-            </div>
+        <div class="flex items-center gap-4">
+          <RouterLink to="/dashboard" class="flex items-center">
+            <img
+              src="/abuinv-logo.svg"
+              alt="AbuInv"
+              class="h-10 w-auto"
+            />
           </RouterLink>
           <div v-if="isAuthed" ref="searchRef" class="relative w-full max-w-sm">
             <input
