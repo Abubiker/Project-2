@@ -49,7 +49,7 @@
             <label class="text-sm text-slate">Номер счета</label>
             <input
               v-model="form.number"
-              placeholder="Оставьте пустым для авто-номера"
+              :placeholder="autoNumberPlaceholder"
               class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3"
             />
           </div>
@@ -179,6 +179,7 @@ const templates = ref([]);
 const templatesLoading = ref(false);
 const templatesError = ref("");
 const formError = ref("");
+const autoNumberPlaceholder = ref("AUTO-INV-0001");
 
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
@@ -254,6 +255,15 @@ async function fetchTemplates() {
   }
 }
 
+async function fetchAutoNumber() {
+  try {
+    const data = await api.getNextInvoiceNumber();
+    autoNumberPlaceholder.value = data.number || autoNumberPlaceholder.value;
+  } catch (_err) {
+    autoNumberPlaceholder.value = "AUTO-INV-0001";
+  }
+}
+
 watch(selectedTemplate, (template) => {
   if (!template) return;
   const data = template.data || {};
@@ -307,5 +317,6 @@ async function handleSave() {
 onMounted(() => {
   fetchClients();
   fetchTemplates();
+  fetchAutoNumber();
 });
 </script>

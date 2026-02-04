@@ -67,7 +67,7 @@
       </form>
     </section>
 
-    <div v-if="selectedClient" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+    <div v-if="selectedClient" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="closeModal">
       <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
         <div class="flex items-start justify-between">
           <div>
@@ -89,7 +89,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { api } from "../api";
 
 const clients = ref([]);
@@ -122,6 +122,12 @@ function openClient(client) {
 
 function closeModal() {
   selectedClient.value = null;
+}
+
+function onEsc(event) {
+  if (event.key === "Escape") {
+    closeModal();
+  }
 }
 
 async function fetchClients() {
@@ -165,5 +171,12 @@ async function removeClient(id) {
   }
 }
 
-onMounted(fetchClients);
+onMounted(() => {
+  fetchClients();
+  window.addEventListener("keydown", onEsc);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", onEsc);
+});
 </script>

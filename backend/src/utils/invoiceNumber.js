@@ -4,7 +4,17 @@ function formatInvoiceNumber(sequence) {
   return `INV-${year}-${padded}`;
 }
 
-async function generateInvoiceNumber(dbClient, userId) {
+async function generateInvoiceNumber(dbClient, userId, { increment } = { increment: true }) {
+  if (!increment) {
+    const result = await dbClient.query(
+      `SELECT current_number FROM invoice_counters WHERE user_id = $1`,
+      [userId]
+    );
+
+    const current = result.rows.length ? result.rows[0].current_number : 0;
+    return formatInvoiceNumber(current + 1);
+  }
+
   const result = await dbClient.query(
     `INSERT INTO invoice_counters (user_id, current_number)
      VALUES ($1, 1)

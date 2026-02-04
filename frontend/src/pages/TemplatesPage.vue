@@ -88,7 +88,7 @@
       </form>
     </section>
 
-    <div v-if="selectedTemplate" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+    <div v-if="selectedTemplate" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="closeModal">
       <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
         <div class="flex items-start justify-between">
           <div>
@@ -116,7 +116,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { api } from "../api";
 
 const templates = ref([]);
@@ -147,6 +147,12 @@ function openTemplate(template) {
 
 function closeModal() {
   selectedTemplate.value = null;
+}
+
+function onEsc(event) {
+  if (event.key === "Escape") {
+    closeModal();
+  }
 }
 
 async function fetchTemplates() {
@@ -210,5 +216,12 @@ async function removeTemplate(id) {
   }
 }
 
-onMounted(fetchTemplates);
+onMounted(() => {
+  fetchTemplates();
+  window.addEventListener("keydown", onEsc);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", onEsc);
+});
 </script>

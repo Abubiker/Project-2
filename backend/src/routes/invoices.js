@@ -35,6 +35,21 @@ const updateInvoiceSchema = createInvoiceSchema.extend({
 
 router.use(authRequired);
 
+router.get("/next-number", async (req, res, next) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+    const number = await generateInvoiceNumber(client, req.user.id, { increment: false });
+    await client.query("ROLLBACK");
+    res.json({ number });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 router.get("/", async (req, res, next) => {
   try {
     const result = await db.query(

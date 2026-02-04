@@ -69,4 +69,5 @@ export const api = {
   createTemplate: (payload) => request("/templates", { method: "POST", body: payload }),
   updateTemplate: (id, payload) => request(`/templates/${id}`, { method: "PUT", body: payload }),
   deleteTemplate: (id) => request(`/templates/${id}`, { method: "DELETE" }),
+  getNextInvoiceNumber: () => request("/invoices/next-number"),
 };
