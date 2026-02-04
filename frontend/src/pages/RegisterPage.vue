@@ -51,6 +51,19 @@
             {{ rule.label }}
           </div>
         </div>
+        <div v-if="password.length" class="mt-3">
+          <div class="flex items-center justify-between text-xs text-slate">
+            <span>Надежность пароля</span>
+            <span :class="strengthTextClass">{{ strengthLabel }}</span>
+          </div>
+          <div class="mt-2 h-2 w-full rounded-full bg-black/10">
+            <div
+              class="h-2 rounded-full transition-all"
+              :class="strengthBarClass"
+              :style="{ width: strengthPercent + '%' }"
+            ></div>
+          </div>
+        </div>
       </div>
 
       <button class="w-full rounded-xl bg-ink text-white py-3 font-semibold">
@@ -88,6 +101,29 @@ const passwordRules = computed(() => {
     { label: "1 цифра (0-9)", ok: /[0-9]/.test(pwd) },
     { label: "1 символ (!@#)", ok: /[^A-Za-z0-9]/.test(pwd) },
   ];
+});
+
+const strengthScore = computed(() => passwordRules.value.filter((rule) => rule.ok).length);
+
+const strengthPercent = computed(() => Math.min(100, (strengthScore.value / 4) * 100));
+
+const strengthLabel = computed(() => {
+  if (!password.value.length) return "";
+  if (strengthScore.value <= 1) return "Слабый";
+  if (strengthScore.value <= 3) return "Средний";
+  return "Сильный";
+});
+
+const strengthBarClass = computed(() => {
+  if (strengthScore.value <= 1) return "bg-coral";
+  if (strengthScore.value <= 3) return "bg-amber-400";
+  return "bg-mint";
+});
+
+const strengthTextClass = computed(() => {
+  if (strengthScore.value <= 1) return "text-coral";
+  if (strengthScore.value <= 3) return "text-amber-500";
+  return "text-mint";
 });
 
 async function handleRegister() {
