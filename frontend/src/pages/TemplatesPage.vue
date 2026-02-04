@@ -38,7 +38,8 @@
       <form @submit.prevent="handleCreate" class="space-y-4">
         <div>
           <label class="text-sm text-slate">Название</label>
-          <input v-model="form.name" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+          <input v-model="form.name" :class="inputClass(errors.name)" class="mt-2 w-full rounded-xl border px-4 py-3" />
+          <p v-if="errors.name" class="mt-1 text-xs text-coral">{{ errors.name }}</p>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
@@ -63,9 +64,9 @@
               :key="index"
               class="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] items-center"
             >
-              <input v-model="item.description" placeholder="Описание" class="rounded-xl border border-black/10 px-4 py-3" />
-              <input v-model.number="item.quantity" type="number" min="0.01" step="0.01" placeholder="Кол-во" class="rounded-xl border border-black/10 px-4 py-3" />
-              <input v-model.number="item.unitPrice" type="number" min="0" step="0.01" placeholder="Цена" class="rounded-xl border border-black/10 px-4 py-3" />
+              <input v-model="item.description" placeholder="Описание" :class="inputClass(itemErrors[index]?.description)" class="rounded-xl border px-4 py-3" />
+              <input v-model.number="item.quantity" type="number" min="0.01" step="0.01" placeholder="Кол-во" :class="inputClass(itemErrors[index]?.quantity)" class="rounded-xl border px-4 py-3" />
+              <input v-model.number="item.unitPrice" type="number" min="0" step="0.01" placeholder="Цена" :class="inputClass(itemErrors[index]?.unitPrice)" class="rounded-xl border px-4 py-3" />
               <button
                 v-if="form.items.length > 1"
                 type="button"
@@ -76,6 +77,7 @@
               </button>
             </div>
           </div>
+          <p v-if="errors.items" class="mt-2 text-xs text-coral">{{ errors.items }}</p>
           <button type="button" class="mt-3 text-sm text-ink font-semibold" @click="addItem">
             + Добавить позицию
           </button>
@@ -123,6 +125,8 @@ const templates = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
+const errors = ref({ name: "", items: "" });
+const itemErrors = ref([]);
 const selectedTemplate = ref(null);
 
 const form = reactive({
@@ -139,6 +143,10 @@ function resetForm() {
   form.taxPercent = 0;
   form.notes = "";
   form.items = [{ description: "", quantity: 1, unitPrice: 0 }];
+}
+
+function inputClass(hasError) {
+  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
 }
 
 function openTemplate(template) {
@@ -178,12 +186,32 @@ function removeItem(index) {
 
 async function handleCreate() {
   formError.value = "";
+  errors.value = { name: "", items: "" };
+  itemErrors.value = [];
   if (!form.name.trim()) {
-    formError.value = "Укажите название шаблона.";
-    return;
+    errors.value.name = "Обязательно к заполнению.";
   }
 
   const items = form.items.filter((item) => item.description.trim());
+  form.items.forEach((item, index) => {
+    const itemError = { description: "", quantity: "", unitPrice: "" };
+    if (!item.description.trim()) itemError.description = "Заполните описание.";
+    if (!item.quantity || Number(item.quantity) <= 0) itemError.quantity = "Укажите количество.";
+    if (Number(item.unitPrice) < 0) itemError.unitPrice = "Цена не может быть отрицательной.";
+    itemErrors.value[index] = itemError;
+  });
+  const hasItemErrors = itemErrors.value.some(
+    (item) => item.description || item.quantity || item.unitPrice
+  );
+  if (!items.length) {
+    errors.value.items = "Добавьте хотя бы одну позицию.";
+  } else if (hasItemErrors) {
+    errors.value.items = "Заполните обязательные поля в позициях.";
+  }
+
+  if (errors.value.name || errors.value.items) {
+    return;
+  }
 
   try {
     const payload = {

@@ -37,7 +37,8 @@
       <form @submit.prevent="handleCreate" class="space-y-4">
         <div>
           <label class="text-sm text-slate">Имя</label>
-          <input v-model="form.name" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+          <input v-model="form.name" :class="inputClass(errors.name)" class="mt-2 w-full rounded-xl border px-4 py-3" />
+          <p v-if="errors.name" class="mt-1 text-xs text-coral">{{ errors.name }}</p>
         </div>
         <div>
           <label class="text-sm text-slate">Компания</label>
@@ -45,7 +46,8 @@
         </div>
         <div>
           <label class="text-sm text-slate">Email</label>
-          <input v-model="form.email" type="email" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+          <input v-model="form.email" type="email" :class="inputClass(errors.email)" class="mt-2 w-full rounded-xl border px-4 py-3" />
+          <p v-if="errors.email" class="mt-1 text-xs text-coral">{{ errors.email }}</p>
         </div>
         <div>
           <label class="text-sm text-slate">Телефон</label>
@@ -96,6 +98,8 @@ const clients = ref([]);
 const loading = ref(false);
 const error = ref("");
 const formError = ref("");
+const errors = ref({ name: "", email: "" });
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const selectedClient = ref(null);
 
 const form = reactive({
@@ -114,6 +118,10 @@ function resetForm() {
   form.phone = "";
   form.address = "";
   form.taxId = "";
+}
+
+function inputClass(hasError) {
+  return hasError ? "border-coral focus:outline-none focus:ring-2 focus:ring-coral/40" : "border-black/10";
 }
 
 function openClient(client) {
@@ -145,6 +153,16 @@ async function fetchClients() {
 
 async function handleCreate() {
   formError.value = "";
+  errors.value = { name: "", email: "" };
+  if (!form.name.trim()) {
+    errors.value.name = "Обязательно к заполнению.";
+  }
+  if (form.email && !emailPattern.test(form.email.trim())) {
+    errors.value.email = "Email указан неверно.";
+  }
+  if (errors.value.name || errors.value.email) {
+    return;
+  }
   try {
     const payload = {
       name: form.name,
