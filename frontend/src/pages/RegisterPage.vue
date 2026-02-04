@@ -36,24 +36,32 @@ const email = ref("");
 const password = ref("");
 const error = ref("");
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 async function handleRegister() {
   error.value = "";
   if (!name.value.trim()) {
     error.value = "Укажите имя.";
     return;
   }
-  if (!email.value.trim()) {
-    error.value = "Укажите email.";
+  if (!email.value.trim() || !emailPattern.test(email.value.trim())) {
+    error.value = "Укажите корректный email.";
     return;
   }
-  if (password.value.length < 6) {
-    error.value = "Пароль должен быть минимум 6 символов.";
+  const pwd = password.value;
+  const passwordIssues = [];
+  if (pwd.length < 8) passwordIssues.push("минимум 8 символов");
+  if (!/[A-Z]/.test(pwd)) passwordIssues.push("1 заглавная буква");
+  if (!/[0-9]/.test(pwd)) passwordIssues.push("1 цифра");
+  if (!/[^A-Za-z0-9]/.test(pwd)) passwordIssues.push("1 символ");
+  if (passwordIssues.length) {
+    error.value = `Пароль должен содержать: ${passwordIssues.join(", ")}.`;
     return;
   }
   try {
     const response = await api.register({
-      name: name.value,
-      email: email.value,
+      name: name.value.trim(),
+      email: email.value.trim().toLowerCase(),
       password: password.value,
     });
     setToken(response.token);

@@ -35,6 +35,7 @@ const router = useRouter();
 const email = ref("");
 const password = ref("");
 const error = ref("");
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function handleLogin() {
   error.value = "";
@@ -42,12 +43,19 @@ async function handleLogin() {
     error.value = "Укажите email.";
     return;
   }
+  if (!emailPattern.test(email.value.trim())) {
+    error.value = "Email указан неверно.";
+    return;
+  }
   if (!password.value.trim()) {
     error.value = "Укажите пароль.";
     return;
   }
   try {
-    const response = await api.login({ email: email.value, password: password.value });
+    const response = await api.login({
+      email: email.value.trim().toLowerCase(),
+      password: password.value,
+    });
     setToken(response.token);
     router.push("/dashboard");
   } catch (err) {
