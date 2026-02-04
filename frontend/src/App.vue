@@ -1,14 +1,53 @@
 <template>
   <div class="min-h-screen bg-sand">
     <header class="px-6 py-5 border-b border-black/10 bg-white/70 backdrop-blur">
-      <div class="max-w-6xl mx-auto flex items-center justify-between">
-        <RouterLink to="/dashboard" class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-2xl bg-mint text-white grid place-items-center font-semibold">IG</div>
-          <div>
-            <div class="text-lg font-semibold">Invoice Generator</div>
-            <div class="text-xs text-slate">Быстрое выставление счетов</div>
+      <div class="max-w-6xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-6">
+          <RouterLink to="/dashboard" class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-mint text-white grid place-items-center font-semibold">IG</div>
+            <div>
+              <div class="text-lg font-semibold">AbubInvoiced</div>
+              <div class="text-xs text-slate">Быстрое выставление счетов</div>
+            </div>
+          </RouterLink>
+          <div v-if="isAuthed" ref="searchRef" class="relative w-full max-w-sm">
+            <input
+              v-model="searchTerm"
+              type="text"
+              placeholder="Поиск по счетам, клиентам, шаблонам"
+              class="w-full rounded-xl border border-black/10 bg-white px-4 py-2 text-sm"
+              @focus="openSearch"
+            />
+            <div
+              v-if="searchOpen"
+              class="absolute left-0 right-0 mt-2 rounded-2xl border border-black/10 bg-white shadow-lg"
+            >
+              <div v-if="!searchTerm.trim()" class="px-4 py-3 text-sm text-slate">
+                Введите запрос для поиска.
+              </div>
+              <div v-else-if="searchResults.length === 0" class="px-4 py-3 text-sm text-slate">
+                Ничего не найдено.
+              </div>
+              <div v-else class="max-h-64 overflow-auto py-2">
+                <button
+                  v-for="result in searchResults"
+                  :key="result.key"
+                  class="w-full text-left px-4 py-2 hover:bg-black/5"
+                  @mousedown.prevent
+                  @click="goToResult(result)"
+                >
+                  <div class="text-sm font-semibold">{{ result.title }}</div>
+                  <div class="text-xs text-slate flex items-center justify-between">
+                    <span>{{ result.meta }}</span>
+                    <span class="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-slate">
+                      {{ result.section }}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
-        </RouterLink>
+        </div>
         <nav class="flex items-center gap-4 text-sm text-slate">
           <template v-if="isAuthed">
             <RouterLink to="/dashboard" v-slot="{ href, navigate, isActive }">
@@ -88,6 +127,12 @@ const router = useRouter();
 const isAuthed = ref(Boolean(getToken()));
 const user = ref(null);
 const showLogoutConfirm = ref(false);
+const searchTerm = ref("");
+const searchOpen = ref(false);
+const searchRef = ref(null);
+const invoices = ref([]);
+const clients = ref([]);
+const templates = ref([]);
 
 const userInitials = computed(() => {
   if (!user.value) return "IG";
@@ -107,8 +152,12 @@ function syncAuth() {
   isAuthed.value = Boolean(getToken());
   if (isAuthed.value) {
     fetchUser();
+    fetchSearchData();
   } else {
     user.value = null;
+    invoices.value = [];
+    clients.value = [];
+    templates.value = [];
   }
 }
 
@@ -142,14 +191,100 @@ async function fetchUser() {
   }
 }
 
+async function fetchSearchData() {
+  try {
+    const [invoicesData, clientsData, templatesData] = await Promise.all([
+      api.listInvoices(),
+      api.listClients(),
+      api.listTemplates(),
+    ]);
+    invoices.value = invoicesData.invoices || [];
+    clients.value = clientsData.clients || [];
+    templates.value = templatesData.templates || [];
+  } catch (_err) {
+    invoices.value = [];
+    clients.value = [];
+    templates.value = [];
+  }
+}
+
+const normalizedSearch = computed(() => searchTerm.value.trim().toLowerCase());
+
+const searchResults = computed(() => {
+  const term = normalizedSearch.value;
+  if (!term) return [];
+
+  const results = [];
+
+  invoices.value.forEach((invoice) => {
+    const haystack = `${invoice.number} ${invoice.clientName} ${invoice.status}`.toLowerCase();
+    if (haystack.includes(term)) {
+      results.push({
+        key: `invoice-${invoice.id}`,
+        section: "Счета",
+        title: `${invoice.number} · ${invoice.clientName}`,
+        meta: `${invoice.status} · ${invoice.total} ${invoice.currency}`,
+        route: "/dashboard",
+      });
+    }
+  });
+
+  clients.value.forEach((client) => {
+    const haystack = `${client.name} ${client.company || ""} ${client.email || ""}`.toLowerCase();
+    if (haystack.includes(term)) {
+      results.push({
+        key: `client-${client.id}`,
+        section: "Клиенты",
+        title: client.name,
+        meta: `${client.company || "Без компании"} · ${client.email || "Без email"}`,
+        route: "/clients",
+      });
+    }
+  });
+
+  templates.value.forEach((template) => {
+    const haystack = `${template.name} ${template.data?.currency || ""}`.toLowerCase();
+    if (haystack.includes(term)) {
+      results.push({
+        key: `template-${template.id}`,
+        section: "Шаблоны",
+        title: template.name,
+        meta: `Валюта: ${template.data?.currency || "USD"} · Налог: ${template.data?.taxPercent || 0}%`,
+        route: "/templates",
+      });
+    }
+  });
+
+  return results;
+});
+
+function openSearch() {
+  searchOpen.value = true;
+}
+
+function goToResult(result) {
+  searchOpen.value = false;
+  router.push(result.route);
+}
+
+function handleClickOutside(event) {
+  if (!searchRef.value) return;
+  if (!searchRef.value.contains(event.target)) {
+    searchOpen.value = false;
+  }
+}
+
 onMounted(() => {
   window.addEventListener("auth-changed", syncAuth);
+  document.addEventListener("click", handleClickOutside);
   if (isAuthed.value) {
     fetchUser();
+    fetchSearchData();
   }
 });
 
 onUnmounted(() => {
   window.removeEventListener("auth-changed", syncAuth);
+  document.removeEventListener("click", handleClickOutside);
 });
 </script>

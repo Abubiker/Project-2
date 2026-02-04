@@ -5,22 +5,12 @@
         <h1 class="text-2xl font-semibold">Мои счета</h1>
         <p class="text-slate">Все ваши счета в одном месте.</p>
       </div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="relative">
-          <input
-            v-model="searchTerm"
-            type="text"
-            placeholder="Поиск по счетам, клиентам, шаблонам"
-            class="w-full min-w-[260px] rounded-xl border border-black/10 px-4 py-2 text-sm"
-          />
-        </div>
-        <RouterLink
-          to="/invoices/new"
-          class="rounded-xl bg-ink text-white px-4 py-2 text-sm font-semibold"
-        >
-          Создать счет
-        </RouterLink>
-      </div>
+      <RouterLink
+        to="/invoices/new"
+        class="rounded-xl bg-ink text-white px-4 py-2 text-sm font-semibold"
+      >
+        Создать счет
+      </RouterLink>
     </header>
 
     <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
@@ -51,32 +41,6 @@
       </div>
     </section>
 
-    <section v-if="searchTerm.trim()" class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold">Результаты поиска</h2>
-        <div class="text-sm text-slate">{{ searchResults.length }} найдено</div>
-      </div>
-
-      <div v-if="searchResults.length === 0" class="text-slate text-sm">
-        Ничего не найдено.
-      </div>
-
-      <div v-else class="space-y-3">
-        <div
-          v-for="result in searchResults"
-          :key="result.key"
-          class="flex items-center justify-between border border-black/5 rounded-2xl p-4"
-        >
-          <div>
-            <div class="font-semibold">{{ result.title }}</div>
-            <div class="text-xs text-slate">{{ result.meta }}</div>
-          </div>
-          <span class="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold text-slate">
-            {{ result.section }}
-          </span>
-        </div>
-      </div>
-    </section>
 
     <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
       <div class="flex items-center justify-between mb-4">
@@ -133,12 +97,9 @@ import { api, getToken } from "../api";
 import { pushToast } from "../toast";
 
 const invoices = ref([]);
-const clients = ref([]);
-const templates = ref([]);
 const loading = ref(false);
 const error = ref("");
 const actionMessage = ref("");
-const searchTerm = ref("");
 const statusFilter = ref("all");
 
 const statusOptions = [
@@ -164,71 +125,12 @@ const statusSummary = computed(() => {
   return top ? `${top[0]} (${top[1]})` : "—";
 });
 
-const normalizedSearch = computed(() => searchTerm.value.trim().toLowerCase());
-
 const filteredInvoices = computed(() => {
-  const term = normalizedSearch.value;
   return invoices.value.filter((invoice) => {
     const matchesStatus = statusFilter.value === "all" || invoice.status === statusFilter.value;
     if (!matchesStatus) return false;
-    if (!term) return true;
-    const haystack = [
-      invoice.number,
-      invoice.clientName,
-      invoice.status,
-      invoice.currency,
-      String(invoice.total || ""),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(term);
+    return true;
   });
-});
-
-const searchResults = computed(() => {
-  const term = normalizedSearch.value;
-  if (!term) return [];
-
-  const results = [];
-
-  invoices.value.forEach((invoice) => {
-    const haystack = `${invoice.number} ${invoice.clientName} ${invoice.status}`.toLowerCase();
-    if (haystack.includes(term)) {
-      results.push({
-        key: `invoice-${invoice.id}`,
-        section: "Счета",
-        title: `${invoice.number} · ${invoice.clientName}`,
-        meta: `${invoice.status} · ${invoice.total} ${invoice.currency}`,
-      });
-    }
-  });
-
-  clients.value.forEach((client) => {
-    const haystack = `${client.name} ${client.company || ""} ${client.email || ""}`.toLowerCase();
-    if (haystack.includes(term)) {
-      results.push({
-        key: `client-${client.id}`,
-        section: "Клиенты",
-        title: client.name,
-        meta: `${client.company || "Без компании"} · ${client.email || "Без email"}`,
-      });
-    }
-  });
-
-  templates.value.forEach((template) => {
-    const haystack = `${template.name} ${template.data?.currency || ""}`.toLowerCase();
-    if (haystack.includes(term)) {
-      results.push({
-        key: `template-${template.id}`,
-        section: "Шаблоны",
-        title: template.name,
-        meta: `Валюта: ${template.data?.currency || "USD"} · Налог: ${template.data?.taxPercent || 0}%`,
-      });
-    }
-  });
-
-  return results;
 });
 
 onMounted(async () => {
@@ -243,14 +145,8 @@ onMounted(async () => {
     sessionStorage.removeItem("invoice_created");
   }
   try {
-    const [invoicesData, clientsData, templatesData] = await Promise.all([
-      api.listInvoices(),
-      api.listClients(),
-      api.listTemplates(),
-    ]);
+    const [invoicesData] = await Promise.all([api.listInvoices()]);
     invoices.value = invoicesData.invoices || [];
-    clients.value = clientsData.clients || [];
-    templates.value = templatesData.templates || [];
   } catch (err) {
     error.value = err.message;
   } finally {
