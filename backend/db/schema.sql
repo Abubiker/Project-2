@@ -76,6 +76,47 @@ CREATE TABLE IF NOT EXISTS payments (
   provider_ref TEXT,
   amount NUMERIC(12, 2),
   currency TEXT,
+  method TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS method TEXT;
+
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS note TEXT;
+
+CREATE TABLE IF NOT EXISTS invoice_balances (
+  invoice_id UUID PRIMARY KEY REFERENCES invoices(id) ON DELETE CASCADE,
+  currency TEXT NOT NULL,
+  total NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  paid NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  balance NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reminder_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  days_before_due INTEGER NOT NULL DEFAULT 3,
+  days_after_due INTEGER NOT NULL DEFAULT 3,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reminder_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_id UUID REFERENCES reminder_rules(id) ON DELETE SET NULL,
+  invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  reminder_type TEXT NOT NULL,
+  scheduled_for DATE NOT NULL,
+  sent_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'pending',
+  error TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -83,3 +124,7 @@ CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
 CREATE INDEX IF NOT EXISTS idx_templates_user_id ON invoice_templates(user_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
 CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_balances_invoice_id ON invoice_balances(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_reminder_rules_user_id ON reminder_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_reminder_logs_invoice_id ON reminder_logs(invoice_id);

@@ -6,6 +6,7 @@ const { createHttpError, createValidationError } = require("../utils/errors");
 const { generateInvoiceNumber } = require("../utils/invoiceNumber");
 const { buildInvoicePdf } = require("../utils/invoicePdf");
 const { createTransport } = require("../utils/mailer");
+const { syncInvoiceBalance, getInvoiceBalance } = require("../utils/invoiceBalance");
 const config = require("../config");
 
 const router = express.Router();
@@ -33,7 +34,90 @@ const updateInvoiceSchema = createInvoiceSchema.extend({
   number: z.string().min(1),
 });
 
+const paymentSchema = z.object({
+  amount: z.number().positive(),
+  currency: z.string().min(1).optional(),
+  paidAt: z.string().optional(),
+  method: z.string().max(120).optional(),
+  note: z.string().max(1000).optional(),
+  status: z.enum(["completed", "pending", "failed"]).optional(),
+});
+
+const bulkStatusSchema = z.object({
+  invoiceIds: z.array(z.string().uuid()).min(1),
+  status: z.enum(["draft", "sent", "paid", "overdue"]),
+});
+
+const bulkSchema = z.object({
+  invoiceIds: z.array(z.string().uuid()).min(1),
+  message: z.string().optional(),
+});
+
 router.use(authRequired);
+
+async function loadInvoiceEmailData(invoiceId, userId) {
+  const invoiceResult = await db.query(
+    `SELECT invoices.id, invoices.number, invoices.status, invoices.currency,
+            invoices.issue_date AS "issueDate", invoices.due_date AS "dueDate",
+            invoices.subtotal, invoices.tax, invoices.total, invoices.notes,
+            clients.name AS "clientName", clients.email AS "clientEmail",
+            clients.company AS "clientCompany", clients.phone AS "clientPhone",
+            clients.address AS "clientAddress", clients.tax_id AS "clientTaxId"
+     FROM invoices
+     JOIN clients ON clients.id = invoices.client_id
+     WHERE invoices.id = $1 AND invoices.user_id = $2`,
+    [invoiceId, userId]
+  );
+
+  if (!invoiceResult.rows.length) {
+    throw createHttpError(404, "Invoice not found");
+  }
+
+  const itemsResult = await db.query(
+    `SELECT description, quantity, unit_price AS "unitPrice", amount
+     FROM invoice_items
+     WHERE invoice_id = $1
+     ORDER BY created_at ASC`,
+    [invoiceId]
+  );
+
+  const userResult = await db.query(
+    "SELECT id, name, email FROM users WHERE id = $1",
+    [userId]
+  );
+
+  return {
+    invoiceRow: invoiceResult.rows[0],
+    items: itemsResult.rows,
+    user: userResult.rows[0],
+  };
+}
+
+function mapPdfPayload(invoiceRow, items, user) {
+  return {
+    invoice: {
+      number: invoiceRow.number,
+      status: invoiceRow.status,
+      currency: invoiceRow.currency,
+      issueDate: invoiceRow.issueDate,
+      dueDate: invoiceRow.dueDate,
+      subtotal: invoiceRow.subtotal,
+      tax: invoiceRow.tax,
+      total: invoiceRow.total,
+      notes: invoiceRow.notes,
+    },
+    client: {
+      name: invoiceRow.clientName,
+      email: invoiceRow.clientEmail,
+      company: invoiceRow.clientCompany,
+      phone: invoiceRow.clientPhone,
+      address: invoiceRow.clientAddress,
+      taxId: invoiceRow.clientTaxId,
+    },
+    items,
+    user,
+  };
+}
 
 router.get("/next-number", async (req, res, next) => {
   const client = await db.pool.connect();
@@ -47,6 +131,118 @@ router.get("/next-number", async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+});
+
+router.post("/bulk/status", async (req, res, next) => {
+  try {
+    const data = bulkStatusSchema.parse(req.body);
+    const result = await db.query(
+      `UPDATE invoices
+       SET status = $1, updated_at = NOW()
+       WHERE id = ANY($2::uuid[]) AND user_id = $3
+       RETURNING id, status`,
+      [data.status, data.invoiceIds, req.user.id]
+    );
+    res.json({ updated: result.rows.length, invoices: result.rows });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
+  }
+});
+
+router.post("/bulk/delete", async (req, res, next) => {
+  try {
+    const data = bulkSchema.parse(req.body);
+    const result = await db.query(
+      "DELETE FROM invoices WHERE id = ANY($1::uuid[]) AND user_id = $2 RETURNING id",
+      [data.invoiceIds, req.user.id]
+    );
+    res.json({ deleted: result.rows.length, invoiceIds: result.rows.map((row) => row.id) });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
+  }
+});
+
+router.post("/bulk/email", async (req, res, next) => {
+  try {
+    const data = bulkSchema.parse(req.body);
+    const transport = createTransport();
+    if (!transport) {
+      throw createHttpError(501, "SMTP is not configured");
+    }
+
+    const results = [];
+
+    for (const invoiceId of data.invoiceIds) {
+      try {
+        const { invoiceRow, items, user } = await loadInvoiceEmailData(invoiceId, req.user.id);
+        const recipient = invoiceRow.clientEmail;
+        if (!recipient) {
+          throw createHttpError(400, "Recipient email is missing");
+        }
+
+        const pdfBuffer = await buildInvoicePdf(mapPdfPayload(invoiceRow, items, user));
+
+        const subject = `Invoice ${invoiceRow.number}`;
+        const text =
+          data.message || `Hello,\n\nPlease find attached invoice ${invoiceRow.number}.\n\nThank you.`;
+
+        await transport.sendMail({
+          from: config.smtp.from,
+          to: recipient,
+          subject,
+          text,
+          attachments: [
+            {
+              filename: `${invoiceRow.number}.pdf`,
+              content: pdfBuffer,
+            },
+          ],
+        });
+
+        results.push({ invoiceId, ok: true });
+      } catch (err) {
+        results.push({ invoiceId, ok: false, error: err.message });
+      }
+    }
+
+    const sent = results.filter((item) => item.ok).length;
+    res.json({ sent, failed: results.length - sent, results });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
+  }
+});
+
+router.post("/bulk/pdf", async (req, res, next) => {
+  try {
+    const data = bulkSchema.parse(req.body);
+    const files = [];
+
+    for (const invoiceId of data.invoiceIds) {
+      const { invoiceRow, items, user } = await loadInvoiceEmailData(invoiceId, req.user.id);
+      const pdfBuffer = await buildInvoicePdf(mapPdfPayload(invoiceRow, items, user));
+      files.push({
+        invoiceId,
+        number: invoiceRow.number,
+        pdfBase64: pdfBuffer.toString("base64"),
+      });
+    }
+
+    res.json({ files });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
   }
 });
 
@@ -95,6 +291,90 @@ router.get("/:id", async (req, res, next) => {
     res.json({ invoice: { ...invoiceResult.rows[0], items: itemsResult.rows } });
   } catch (error) {
     next(error);
+  }
+});
+
+router.get("/:id/payments", async (req, res, next) => {
+  try {
+    const invoiceResult = await db.query(
+      "SELECT id FROM invoices WHERE id = $1 AND user_id = $2",
+      [req.params.id, req.user.id]
+    );
+
+    if (!invoiceResult.rows.length) {
+      throw createHttpError(404, "Invoice not found");
+    }
+
+    const paymentsResult = await db.query(
+      `SELECT id, amount, currency, status, paid_at AS "paidAt", method, note, created_at AS "createdAt"
+       FROM payments
+       WHERE invoice_id = $1
+       ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+
+    const balance = await getInvoiceBalance(db, req.params.id);
+
+    res.json({
+      payments: paymentsResult.rows,
+      balance,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/:id/payments", async (req, res, next) => {
+  const client = await db.pool.connect();
+  try {
+    const data = paymentSchema.parse(req.body);
+
+    const invoiceResult = await client.query(
+      "SELECT id, currency FROM invoices WHERE id = $1 AND user_id = $2",
+      [req.params.id, req.user.id]
+    );
+
+    if (!invoiceResult.rows.length) {
+      throw createHttpError(404, "Invoice not found");
+    }
+
+    const invoice = invoiceResult.rows[0];
+    const paymentCurrency = data.currency || invoice.currency;
+    const paidAt = data.paidAt ? new Date(data.paidAt) : new Date();
+    const status = data.status || "completed";
+
+    await client.query("BEGIN");
+
+    const paymentResult = await client.query(
+      `INSERT INTO payments (invoice_id, status, paid_at, provider, provider_ref, amount, currency, method, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, amount, currency, status, paid_at AS "paidAt", method, note, created_at AS "createdAt"`,
+      [
+        req.params.id,
+        status,
+        paidAt,
+        "manual",
+        null,
+        data.amount,
+        paymentCurrency,
+        data.method || null,
+        data.note || null,
+      ]
+    );
+
+    const balance = await syncInvoiceBalance(client, req.params.id);
+
+    await client.query("COMMIT");
+
+    res.status(201).json({ payment: paymentResult.rows[0], balance });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error instanceof z.ZodError) {
+      return next(createValidationError(error));
+    }
+    return next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -149,6 +429,8 @@ router.post("/", async (req, res, next) => {
         [invoice.id, item.description, item.quantity, item.unitPrice, amount]
       );
     }
+
+    await syncInvoiceBalance(client, invoice.id);
 
     await client.query("COMMIT");
 
@@ -227,6 +509,8 @@ router.put("/:id", async (req, res, next) => {
       );
     }
 
+    await syncInvoiceBalance(client, req.params.id);
+
     await client.query("COMMIT");
 
     const itemsResult = await db.query(
@@ -300,38 +584,7 @@ router.post("/:id/send-email", async (req, res, next) => {
     });
     const data = emailSchema.parse(req.body || {});
 
-    const invoiceResult = await db.query(
-      `SELECT invoices.id, invoices.number, invoices.status, invoices.currency,
-              invoices.issue_date AS "issueDate", invoices.due_date AS "dueDate",
-              invoices.subtotal, invoices.tax, invoices.total, invoices.notes,
-              clients.name AS "clientName", clients.email AS "clientEmail",
-              clients.company AS "clientCompany", clients.phone AS "clientPhone",
-              clients.address AS "clientAddress", clients.tax_id AS "clientTaxId"
-       FROM invoices
-       JOIN clients ON clients.id = invoices.client_id
-       WHERE invoices.id = $1 AND invoices.user_id = $2`,
-      [req.params.id, req.user.id]
-    );
-
-    if (!invoiceResult.rows.length) {
-      throw createHttpError(404, "Invoice not found");
-    }
-
-    const itemsResult = await db.query(
-      `SELECT description, quantity, unit_price AS "unitPrice", amount
-       FROM invoice_items
-       WHERE invoice_id = $1
-       ORDER BY created_at ASC`,
-      [req.params.id]
-    );
-
-    const userResult = await db.query(
-      "SELECT id, name, email FROM users WHERE id = $1",
-      [req.user.id]
-    );
-
-    const invoiceRow = invoiceResult.rows[0];
-    const user = userResult.rows[0];
+    const { invoiceRow, items, user } = await loadInvoiceEmailData(req.params.id, req.user.id);
 
     const recipient = data.to || invoiceRow.clientEmail;
     if (!recipient) {
@@ -343,33 +596,11 @@ router.post("/:id/send-email", async (req, res, next) => {
       throw createHttpError(501, "SMTP is not configured");
     }
 
-    const pdfBuffer = await buildInvoicePdf({
-      invoice: {
-        number: invoiceRow.number,
-        status: invoiceRow.status,
-        currency: invoiceRow.currency,
-        issueDate: invoiceRow.issueDate,
-        dueDate: invoiceRow.dueDate,
-        subtotal: invoiceRow.subtotal,
-        tax: invoiceRow.tax,
-        total: invoiceRow.total,
-        notes: invoiceRow.notes,
-      },
-      client: {
-        name: invoiceRow.clientName,
-        email: invoiceRow.clientEmail,
-        company: invoiceRow.clientCompany,
-        phone: invoiceRow.clientPhone,
-        address: invoiceRow.clientAddress,
-        taxId: invoiceRow.clientTaxId,
-      },
-      items: itemsResult.rows,
-      user,
-    });
+    const pdfBuffer = await buildInvoicePdf(mapPdfPayload(invoiceRow, items, user));
 
     const subject = `Invoice ${invoiceRow.number}`;
     const text =
-      data.message || `Hello,\\n\\nPlease find attached invoice ${invoiceRow.number}.\\n\\nThank you.`;
+      data.message || `Hello,\n\nPlease find attached invoice ${invoiceRow.number}.\n\nThank you.`;
 
     await transport.sendMail({
       from: config.smtp.from,
@@ -395,62 +626,8 @@ router.post("/:id/send-email", async (req, res, next) => {
 
 router.get("/:id/pdf", async (req, res, next) => {
   try {
-    const invoiceResult = await db.query(
-      `SELECT invoices.id, invoices.number, invoices.status, invoices.currency,
-              invoices.issue_date AS "issueDate", invoices.due_date AS "dueDate",
-              invoices.subtotal, invoices.tax, invoices.total, invoices.notes,
-              clients.name AS "clientName", clients.email AS "clientEmail",
-              clients.company AS "clientCompany", clients.phone AS "clientPhone",
-              clients.address AS "clientAddress", clients.tax_id AS "clientTaxId"
-       FROM invoices
-       JOIN clients ON clients.id = invoices.client_id
-       WHERE invoices.id = $1 AND invoices.user_id = $2`,
-      [req.params.id, req.user.id]
-    );
-
-    if (!invoiceResult.rows.length) {
-      throw createHttpError(404, "Invoice not found");
-    }
-
-    const itemsResult = await db.query(
-      `SELECT description, quantity, unit_price AS "unitPrice", amount
-       FROM invoice_items
-       WHERE invoice_id = $1
-       ORDER BY created_at ASC`,
-      [req.params.id]
-    );
-
-    const userResult = await db.query(
-      "SELECT id, name, email FROM users WHERE id = $1",
-      [req.user.id]
-    );
-
-    const invoiceRow = invoiceResult.rows[0];
-    const user = userResult.rows[0];
-
-    const pdfBuffer = await buildInvoicePdf({
-      invoice: {
-        number: invoiceRow.number,
-        status: invoiceRow.status,
-        currency: invoiceRow.currency,
-        issueDate: invoiceRow.issueDate,
-        dueDate: invoiceRow.dueDate,
-        subtotal: invoiceRow.subtotal,
-        tax: invoiceRow.tax,
-        total: invoiceRow.total,
-        notes: invoiceRow.notes,
-      },
-      client: {
-        name: invoiceRow.clientName,
-        email: invoiceRow.clientEmail,
-        company: invoiceRow.clientCompany,
-        phone: invoiceRow.clientPhone,
-        address: invoiceRow.clientAddress,
-        taxId: invoiceRow.clientTaxId,
-      },
-      items: itemsResult.rows,
-      user,
-    });
+    const { invoiceRow, items, user } = await loadInvoiceEmailData(req.params.id, req.user.id);
+    const pdfBuffer = await buildInvoicePdf(mapPdfPayload(invoiceRow, items, user));
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=\"${invoiceRow.number}.pdf\"`);

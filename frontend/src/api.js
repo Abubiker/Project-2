@@ -61,6 +61,17 @@ export const api = {
     request(`/invoices/${id}/status`, { method: "PATCH", body: { status } }),
   sendInvoiceEmail: (id, payload) =>
     request(`/invoices/${id}/send-email`, { method: "POST", body: payload }),
+  listInvoicePayments: (id) => request(`/invoices/${id}/payments`),
+  createInvoicePayment: (id, payload) =>
+    request(`/invoices/${id}/payments`, { method: "POST", body: payload }),
+  bulkUpdateInvoiceStatus: (invoiceIds, status) =>
+    request("/invoices/bulk/status", { method: "POST", body: { invoiceIds, status } }),
+  bulkSendInvoiceEmail: (invoiceIds, message) =>
+    request("/invoices/bulk/email", { method: "POST", body: { invoiceIds, message } }),
+  bulkDeleteInvoices: (invoiceIds) =>
+    request("/invoices/bulk/delete", { method: "POST", body: { invoiceIds } }),
+  bulkDownloadPdf: (invoiceIds) =>
+    request("/invoices/bulk/pdf", { method: "POST", body: { invoiceIds } }),
   listClients: () => request("/clients"),
   createClient: (payload) => request("/clients", { method: "POST", body: payload }),
   updateClient: (id, payload) => request(`/clients/${id}`, { method: "PUT", body: payload }),

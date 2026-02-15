@@ -8,6 +8,7 @@ const authRoutes = require("./routes/auth");
 const clientsRoutes = require("./routes/clients");
 const templatesRoutes = require("./routes/templates");
 const invoicesRoutes = require("./routes/invoices");
+const remindersRoutes = require("./routes/reminders");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/clients", clientsRoutes);
 app.use("/api/templates", templatesRoutes);
 app.use("/api/invoices", invoicesRoutes);
+app.use("/api/reminders", remindersRoutes);
 
 // Not found handler
 app.use((_req, _res, next) => {

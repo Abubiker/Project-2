@@ -6,6 +6,7 @@ const config = {
   jwtSecret: process.env.JWT_SECRET || "change_me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  cronSecret: process.env.CRON_SECRET,
   smtp: {
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,

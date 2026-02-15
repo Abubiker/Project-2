@@ -266,9 +266,28 @@
           </div>
         </div>
 
+        <div class="mb-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="rounded-full border px-4 py-2 text-xs font-semibold"
+            :class="previewState.tab === 'details' ? 'border-ink text-ink' : 'border-black/10 text-slate'"
+            @click="previewState.tab = 'details'"
+          >
+            Детали
+          </button>
+          <button
+            type="button"
+            class="rounded-full border px-4 py-2 text-xs font-semibold"
+            :class="previewState.tab === 'payments' ? 'border-ink text-ink' : 'border-black/10 text-slate'"
+            @click="previewState.tab = 'payments'"
+          >
+            Оплаты
+          </button>
+        </div>
+
         <div v-if="previewState.loading" class="text-sm text-slate">Загрузка счета...</div>
         <div v-else-if="previewState.error" class="text-sm text-coral">{{ previewState.error }}</div>
-        <div v-else-if="previewState.details" class="space-y-5">
+        <div v-else-if="previewState.details && previewState.tab === 'details'" class="space-y-5">
           <div class="grid gap-3 sm:grid-cols-2 text-sm">
             <div><span class="text-slate">Номер:</span> {{ previewState.details.number }}</div>
             <div><span class="text-slate">Статус:</span> {{ statusLabel(previewState.details.status) }}</div>
@@ -310,6 +329,120 @@
             </div>
           </div>
         </div>
+
+        <div v-else-if="previewState.details && previewState.tab === 'payments'" class="space-y-5">
+          <div class="grid gap-3 sm:grid-cols-3 text-sm">
+            <div class="rounded-2xl border border-black/10 p-3">
+              <div class="text-xs text-slate mb-1">Итого</div>
+              <div class="text-lg font-semibold">
+                {{ previewState.balance?.total ?? previewState.details.total }} {{ previewState.details.currency }}
+              </div>
+            </div>
+            <div class="rounded-2xl border border-black/10 p-3">
+              <div class="text-xs text-slate mb-1">Оплачено</div>
+              <div class="text-lg font-semibold">
+                {{ previewState.balance?.paid ?? 0 }} {{ previewState.details.currency }}
+              </div>
+            </div>
+            <div class="rounded-2xl border border-black/10 p-3">
+              <div class="text-xs text-slate mb-1">Остаток</div>
+              <div class="text-lg font-semibold">
+                {{ previewState.balance?.balance ?? previewState.details.total }} {{ previewState.details.currency }}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div class="text-sm font-semibold">Платежи</div>
+            <button
+              type="button"
+              class="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold"
+              @click="togglePaymentForm"
+            >
+              {{ previewState.addPaymentOpen ? "Закрыть" : "Добавить оплату" }}
+            </button>
+          </div>
+
+          <div v-if="previewState.addPaymentOpen" class="rounded-2xl border border-black/10 p-4 space-y-3">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="text-xs text-slate">Сумма</label>
+                <input
+                  v-model="previewState.addPaymentForm.amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+                />
+              </div>
+              <div>
+                <label class="text-xs text-slate">Дата оплаты</label>
+                <input
+                  v-model="previewState.addPaymentForm.paidAt"
+                  type="date"
+                  class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+                />
+              </div>
+              <div>
+                <label class="text-xs text-slate">Способ</label>
+                <input
+                  v-model="previewState.addPaymentForm.method"
+                  type="text"
+                  placeholder="Наличные/Карта/Stripe"
+                  class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+                />
+              </div>
+              <div>
+                <label class="text-xs text-slate">Комментарий</label>
+                <input
+                  v-model="previewState.addPaymentForm.note"
+                  type="text"
+                  placeholder="ID транзакции"
+                  class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+                />
+              </div>
+            </div>
+            <div v-if="previewState.addPaymentError" class="text-xs text-coral">{{ previewState.addPaymentError }}</div>
+            <div class="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                class="rounded-full border border-black/10 px-3 py-2 text-xs font-semibold"
+                @click="togglePaymentForm"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                class="rounded-full bg-ink text-white px-4 py-2 text-xs font-semibold disabled:opacity-60"
+                :disabled="previewState.addPaymentLoading"
+                @click="addPayment"
+              >
+                {{ previewState.addPaymentLoading ? "Сохраняем..." : "Сохранить оплату" }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="previewState.payments.length === 0" class="text-sm text-slate">
+            Пока нет оплат.
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="payment in previewState.payments"
+              :key="payment.id"
+              class="flex flex-col gap-1 rounded-xl border border-black/10 px-3 py-2 text-sm"
+            >
+              <div class="flex items-center justify-between">
+                <div class="font-semibold">
+                  {{ payment.amount }} {{ payment.currency || previewState.details.currency }}
+                </div>
+                <div class="text-xs text-slate">{{ payment.paidAt?.slice(0, 10) || payment.createdAt?.slice(0, 10) }}</div>
+              </div>
+              <div class="text-xs text-slate">
+                {{ payment.method || "manual" }} · {{ payment.note || "Без комментария" }}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -337,6 +470,18 @@ const previewState = ref({
   error: "",
   base: null,
   details: null,
+  payments: [],
+  balance: null,
+  tab: "details",
+  addPaymentOpen: false,
+  addPaymentLoading: false,
+  addPaymentError: "",
+  addPaymentForm: {
+    amount: "",
+    paidAt: "",
+    method: "",
+    note: "",
+  },
 });
 
 const invoiceStatusOptions = [
@@ -456,6 +601,18 @@ function closeInvoicePreview() {
     error: "",
     base: null,
     details: null,
+    payments: [],
+    balance: null,
+    tab: "details",
+    addPaymentOpen: false,
+    addPaymentLoading: false,
+    addPaymentError: "",
+    addPaymentForm: {
+      amount: "",
+      paidAt: "",
+      method: "",
+      note: "",
+    },
   };
 }
 
@@ -479,14 +636,31 @@ async function openInvoicePreview(invoice) {
     error: "",
     base: invoice,
     details: null,
+    payments: [],
+    balance: null,
+    tab: "details",
+    addPaymentOpen: false,
+    addPaymentLoading: false,
+    addPaymentError: "",
+    addPaymentForm: {
+      amount: "",
+      paidAt: "",
+      method: "",
+      note: "",
+    },
   };
 
   try {
-    const data = await api.getInvoice(invoice.id);
+    const [invoiceData, paymentData] = await Promise.all([
+      api.getInvoice(invoice.id),
+      api.listInvoicePayments(invoice.id),
+    ]);
     previewState.value = {
       ...previewState.value,
       loading: false,
-      details: data?.invoice || null,
+      details: invoiceData?.invoice || null,
+      payments: paymentData?.payments || [],
+      balance: paymentData?.balance || null,
     };
   } catch (err) {
     previewState.value = {
@@ -494,6 +668,56 @@ async function openInvoicePreview(invoice) {
       loading: false,
       error: err.message || "Не удалось загрузить счет.",
     };
+  }
+}
+
+function togglePaymentForm() {
+  previewState.value.addPaymentOpen = !previewState.value.addPaymentOpen;
+  previewState.value.addPaymentError = "";
+}
+
+function resetPaymentForm() {
+  previewState.value.addPaymentForm = {
+    amount: "",
+    paidAt: "",
+    method: "",
+    note: "",
+  };
+  previewState.value.addPaymentError = "";
+}
+
+async function addPayment() {
+  if (!previewState.value.details?.id) return;
+
+  const amountValue = Number(previewState.value.addPaymentForm.amount);
+  if (!amountValue || amountValue <= 0) {
+    previewState.value.addPaymentError = "Введите сумму оплаты.";
+    return;
+  }
+
+  previewState.value.addPaymentLoading = true;
+  previewState.value.addPaymentError = "";
+
+  try {
+    const payload = {
+      amount: amountValue,
+      paidAt: previewState.value.addPaymentForm.paidAt || undefined,
+      method: previewState.value.addPaymentForm.method || undefined,
+      note: previewState.value.addPaymentForm.note || undefined,
+      status: "completed",
+    };
+
+    const response = await api.createInvoicePayment(previewState.value.details.id, payload);
+    previewState.value.payments = [response.payment, ...previewState.value.payments];
+    previewState.value.balance = response.balance || previewState.value.balance;
+    resetPaymentForm();
+    previewState.value.addPaymentOpen = false;
+    pushToast({ message: "Оплата добавлена", tone: "success" });
+  } catch (err) {
+    previewState.value.addPaymentError = err.message || "Не удалось добавить оплату.";
+    pushToast({ message: err.message || "Ошибка добавления оплаты", tone: "danger" });
+  } finally {
+    previewState.value.addPaymentLoading = false;
   }
 }
 
@@ -616,30 +840,20 @@ async function applyBulkStatus() {
 
   bulkBusy.value = true;
   const targets = [...selectedInvoices.value];
-  const results = await Promise.allSettled(
-    targets.map((invoice) => api.updateInvoiceStatus(invoice.id, bulkStatus.value))
-  );
 
-  let success = 0;
-  let failed = 0;
-
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled") {
-      success += 1;
-      updateLocalStatus(targets[index].id, bulkStatus.value);
-      return;
-    }
-    failed += 1;
-  });
-
-  bulkBusy.value = false;
-  closeMenu();
-
-  if (success > 0) {
-    pushToast({ message: `Статус обновлен для ${success} счетов`, tone: "success" });
-  }
-  if (failed > 0) {
-    pushToast({ message: `Не удалось обновить ${failed} счетов`, tone: "danger" });
+  try {
+    const response = await api.bulkUpdateInvoiceStatus(
+      targets.map((invoice) => invoice.id),
+      bulkStatus.value
+    );
+    const updatedIds = response?.invoices?.map((row) => row.id) || [];
+    updatedIds.forEach((id) => updateLocalStatus(id, bulkStatus.value));
+    pushToast({ message: `Статус обновлен для ${updatedIds.length} счетов`, tone: "success" });
+  } catch (err) {
+    pushToast({ message: err.message || "Ошибка массового обновления", tone: "danger" });
+  } finally {
+    bulkBusy.value = false;
+    closeMenu();
   }
 }
 
@@ -650,21 +864,18 @@ async function bulkSendEmail() {
   if (!confirmSend) return;
 
   bulkBusy.value = true;
-  const targets = [...selectedInvoices.value];
-  const results = await Promise.allSettled(
-    targets.map((invoice) => api.sendInvoiceEmail(invoice.id, {}))
-  );
-
-  const success = results.filter((result) => result.status === "fulfilled").length;
-  const failed = results.length - success;
-
-  bulkBusy.value = false;
-
-  if (success > 0) {
-    pushToast({ message: `Отправлено ${success} счетов`, tone: "success" });
-  }
-  if (failed > 0) {
-    pushToast({ message: `Не удалось отправить ${failed} счетов`, tone: "danger" });
+  try {
+    const response = await api.bulkSendInvoiceEmail(
+      selectedInvoices.value.map((invoice) => invoice.id)
+    );
+    pushToast({ message: `Отправлено ${response?.sent || 0} счетов`, tone: "success" });
+    if (response?.failed) {
+      pushToast({ message: `Ошибок отправки: ${response.failed}`, tone: "danger" });
+    }
+  } catch (err) {
+    pushToast({ message: err.message || "Ошибка массовой отправки", tone: "danger" });
+  } finally {
+    bulkBusy.value = false;
   }
 }
 
@@ -672,25 +883,26 @@ async function bulkDownloadPdf() {
   if (bulkActionDisabled.value) return;
 
   bulkBusy.value = true;
-  let success = 0;
-  let failed = 0;
+  try {
+    const response = await api.bulkDownloadPdf(
+      selectedInvoices.value.map((invoice) => invoice.id)
+    );
+    const files = response?.files || [];
 
-  for (const invoice of selectedInvoices.value) {
-    const downloaded = await downloadPdf(invoice, { silent: true });
-    if (downloaded) {
-      success += 1;
-      continue;
+    for (const file of files) {
+      const link = document.createElement("a");
+      link.href = `data:application/pdf;base64,${file.pdfBase64}`;
+      link.download = `${file.number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
-    failed += 1;
-  }
 
-  bulkBusy.value = false;
-
-  if (success > 0) {
-    pushToast({ message: `Скачано ${success} PDF`, tone: "success" });
-  }
-  if (failed > 0) {
-    pushToast({ message: `Не удалось скачать ${failed} PDF`, tone: "danger" });
+    pushToast({ message: `Скачано ${files.length} PDF`, tone: "success" });
+  } catch (err) {
+    pushToast({ message: err.message || "Ошибка массового скачивания", tone: "danger" });
+  } finally {
+    bulkBusy.value = false;
   }
 }
 
@@ -701,31 +913,18 @@ async function bulkDeleteInvoices() {
   if (!confirmDelete) return;
 
   bulkBusy.value = true;
-  const targets = [...selectedInvoices.value];
-  const results = await Promise.allSettled(
-    targets.map((invoice) => api.deleteInvoice(invoice.id))
-  );
-
-  const removedIds = [];
-  let failed = 0;
-
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled") {
-      removedIds.push(targets[index].id);
-      return;
-    }
-    failed += 1;
-  });
-
-  removeInvoicesFromList(removedIds);
-  bulkBusy.value = false;
-  closeMenu();
-
-  if (removedIds.length > 0) {
+  try {
+    const response = await api.bulkDeleteInvoices(
+      selectedInvoices.value.map((invoice) => invoice.id)
+    );
+    const removedIds = response?.invoiceIds || [];
+    removeInvoicesFromList(removedIds);
     pushToast({ message: `Удалено ${removedIds.length} счетов`, tone: "success" });
-  }
-  if (failed > 0) {
-    pushToast({ message: `Не удалось удалить ${failed} счетов`, tone: "danger" });
+  } catch (err) {
+    pushToast({ message: err.message || "Ошибка массового удаления", tone: "danger" });
+  } finally {
+    bulkBusy.value = false;
+    closeMenu();
   }
 }
 
