@@ -18,12 +18,12 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 const selectVariants = cva(
-  "w-full rounded-xl border bg-white px-4 py-3 text-sm text-ink transition focus-visible:outline-none focus-visible:ring-2",
+  "ui-field w-full rounded-xl px-4 py-3 text-sm transition focus-visible:outline-none focus-visible:ring-2",
   {
     variants: {
       invalid: {
         true: "border-coral bg-coral/10 focus-visible:ring-coral/40",
-        false: "border-black/10 focus-visible:ring-ink/20",
+        false: "border-[color:var(--field-border)] focus-visible:ring-[color:var(--field-focus-ring)]",
       },
     },
     defaultVariants: {

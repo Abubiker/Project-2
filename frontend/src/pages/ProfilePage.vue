@@ -137,7 +137,7 @@
     </UiCard>
 
     <div v-if="confirmPasswordChange" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="confirmPasswordChange = false">
-      <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg">
+      <div class="liquid-glass-surface w-full max-w-md rounded-3xl p-6 shadow-lg">
         <h3 class="text-lg font-semibold mb-2">Подтвердить смену пароля?</h3>
         <p class="text-sm text-slate mb-6">Вы уверены, что хотите обновить пароль?</p>
         <div class="flex items-center justify-end gap-3">

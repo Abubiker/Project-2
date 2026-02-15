@@ -16,6 +16,7 @@ const routes = [
   { path: "/clients", component: ClientsPage, meta: { requiresAuth: true } },
   { path: "/templates", component: TemplatesPage, meta: { requiresAuth: true } },
   { path: "/invoices/new", component: InvoiceCreatePage, meta: { requiresAuth: true } },
+  { path: "/invoices/:id/edit", component: InvoiceCreatePage, meta: { requiresAuth: true } },
   { path: "/profile", component: ProfilePage, meta: { requiresAuth: true } },
 ];
 

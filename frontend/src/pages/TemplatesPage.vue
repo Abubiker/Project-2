@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-6xl mx-auto grid gap-8 lg:grid-cols-[1.2fr,1fr]">
+  <div class="max-w-6xl mx-auto grid gap-8 lg:grid-cols-[1.2fr_1fr]">
     <UiCard>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-semibold">Шаблоны счетов</h2>
@@ -55,11 +55,26 @@
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <UiLabel for="template-currency">Валюта</UiLabel>
-            <UiInput id="template-currency" v-model="form.currency" class-name="mt-2" />
+            <UiSelect id="template-currency" v-model="form.currency" class-name="mt-2">
+              <option
+                v-for="currencyOption in currencyOptions"
+                :key="currencyOption"
+                :value="currencyOption"
+              >
+                {{ currencyOption }}
+              </option>
+            </UiSelect>
           </div>
           <div>
             <UiLabel for="template-tax-percent">Налог, %</UiLabel>
-            <input id="template-tax-percent" v-model.number="form.taxPercent" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <input
+              id="template-tax-percent"
+              v-model.number="form.taxPercent"
+              type="number"
+              min="0"
+              step="0.01"
+              class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+            />
           </div>
         </div>
         <div>
@@ -69,7 +84,7 @@
 
         <div>
           <label class="text-sm text-slate">Позиции по умолчанию</label>
-          <div class="mt-3 grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] text-xs text-slate">
+          <div class="mt-3 grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] text-xs text-slate">
             <div>Описание</div>
             <div>Кол-во</div>
             <div>Цена</div>
@@ -79,7 +94,7 @@
             <div
               v-for="(item, index) in form.items"
               :key="index"
-              class="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] items-center"
+              class="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] items-center"
             >
               <UiInput
                 v-model="item.description"
@@ -95,7 +110,7 @@
                 :aria-label="`Количество позиции ${index + 1}`"
                 placeholder="Кол-во"
                 :class="getInputClass(itemErrors[index]?.quantity)"
-                class="rounded-xl border px-4 py-3"
+                class="ui-field w-full rounded-xl px-4 py-3"
               />
               <input
                 v-model.number="item.unitPrice"
@@ -105,7 +120,7 @@
                 :aria-label="`Цена позиции ${index + 1}`"
                 placeholder="Цена"
                 :class="getInputClass(itemErrors[index]?.unitPrice)"
-                class="rounded-xl border px-4 py-3"
+                class="ui-field w-full rounded-xl px-4 py-3"
               />
               <button
                 v-if="form.items.length > 1"
@@ -131,7 +146,7 @@
     </UiCard>
 
     <div v-if="selectedTemplate" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="closeModal">
-      <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
+      <div class="liquid-glass-surface w-full max-w-lg rounded-3xl p-6 shadow-lg">
         <div class="flex items-start justify-between">
           <div>
             <h3 class="text-lg font-semibold">{{ selectedTemplate.name }}</h3>
@@ -167,6 +182,7 @@ import UiButton from "../components/ui/UiButton.vue";
 import UiCard from "../components/ui/UiCard.vue";
 import UiInput from "../components/ui/UiInput.vue";
 import UiLabel from "../components/ui/UiLabel.vue";
+import UiSelect from "../components/ui/UiSelect.vue";
 import UiTextarea from "../components/ui/UiTextarea.vue";
 
 const templates = ref([]);
@@ -176,6 +192,7 @@ const formError = ref("");
 const errors = ref({ name: "", items: "" });
 const itemErrors = ref([]);
 const selectedTemplate = ref(null);
+const currencyOptions = ["USD", "EUR", "RUB"];
 
 const form = reactive({
   name: "",
@@ -265,7 +282,7 @@ async function handleCreate() {
     const payload = {
       name: normalizeString(form.name),
       data: {
-        currency: normalizeString(form.currency) || "USD",
+        currency: currencyOptions.includes(form.currency) ? form.currency : "USD",
         taxPercent: Number(form.taxPercent || 0),
         notes: normalizeString(form.notes),
         items: items.map((item) => ({

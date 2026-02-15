@@ -2,15 +2,21 @@
   <div class="max-w-6xl mx-auto space-y-8">
     <header class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-semibold">Новый счет</h1>
-        <p class="text-slate">Данные клиента и шаблон подтянутся автоматически после выбора.</p>
+        <h1 class="text-2xl font-semibold">{{ isEditMode ? "Редактировать счет" : "Новый счет" }}</h1>
+        <p class="text-slate">
+          {{
+            isEditMode
+              ? "Редактирование доступно только для счетов со статусом draft."
+              : "Данные клиента и шаблон подтянутся автоматически после выбора."
+          }}
+        </p>
       </div>
       <UiButton class-name="px-6" @click="handleSave">
-        Сохранить счет
+        {{ isEditMode ? "Сохранить изменения" : "Сохранить счет" }}
       </UiButton>
     </header>
 
-    <div class="grid gap-6 lg:grid-cols-[1.4fr,1fr]">
+    <div class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <UiCard class-name="space-y-6">
         <div>
           <h2 class="text-lg font-semibold mb-3">Шаблон</h2>
@@ -75,11 +81,21 @@
           </div>
           <div>
             <UiLabel for="invoice-issue-date">Дата выставления</UiLabel>
-            <input id="invoice-issue-date" v-model="form.issueDate" type="date" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <input
+              id="invoice-issue-date"
+              v-model="form.issueDate"
+              type="date"
+              class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+            />
           </div>
           <div>
             <UiLabel for="invoice-due-date">Срок оплаты</UiLabel>
-            <input id="invoice-due-date" v-model="form.dueDate" type="date" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <input
+              id="invoice-due-date"
+              v-model="form.dueDate"
+              type="date"
+              class="ui-field mt-2 w-full rounded-xl px-4 py-3"
+            />
           </div>
         </div>
 
@@ -89,7 +105,7 @@
             <div
               v-for="(item, index) in form.items"
               :key="index"
-              class="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] items-center"
+              class="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] items-center"
             >
               <UiInput
                 v-model="item.description"
@@ -105,7 +121,7 @@
                 placeholder="Кол-во"
                 :aria-label="`Количество позиции ${index + 1}`"
                 :class="getInputClass(itemErrors[index]?.quantity)"
-                class="rounded-xl border px-4 py-3"
+                class="ui-field w-full rounded-xl px-4 py-3"
               />
               <input
                 v-model.number="item.unitPrice"
@@ -115,7 +131,7 @@
                 placeholder="Цена"
                 :aria-label="`Цена позиции ${index + 1}`"
                 :class="getInputClass(itemErrors[index]?.unitPrice)"
-                class="rounded-xl border px-4 py-3"
+                class="ui-field w-full rounded-xl px-4 py-3"
               />
               <div class="text-right text-sm text-slate">
                 {{ formatMoney(item.quantity * item.unitPrice) }}
@@ -172,7 +188,7 @@
               type="number"
               min="0"
               step="0.01"
-              class="w-24 rounded-xl border border-black/10 px-3 py-2 text-right"
+              class="ui-field w-24 rounded-xl px-3 py-2 text-right"
             />
           </div>
           <div class="flex items-center justify-between">
@@ -191,7 +207,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { RouterLink, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { api } from "../api";
 import { getInputClass, normalizeString, validateRequired } from "../utils/form";
 import UiButton from "../components/ui/UiButton.vue";
@@ -202,6 +218,7 @@ import UiSelect from "../components/ui/UiSelect.vue";
 import UiTextarea from "../components/ui/UiTextarea.vue";
 
 const router = useRouter();
+const route = useRoute();
 const clients = ref([]);
 const clientsLoading = ref(false);
 const clientsError = ref("");
@@ -213,9 +230,24 @@ const errors = ref({ clientId: "", items: "" });
 const itemErrors = ref([]);
 const autoNumberPlaceholder = ref("AUTO-INV-0001");
 const currencyOptions = ["USD", "EUR", "RUB"];
+const currentInvoiceStatus = ref("draft");
+const originalInvoiceNumber = ref("");
+const templateAutofillEnabled = ref(true);
+const initialTemplateId = ref("");
+
+const invoiceId = computed(() => {
+  const id = route.params.id;
+  return id ? String(id) : "";
+});
+
+const isEditMode = computed(() => Boolean(invoiceId.value));
 
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
+}
+
+function toDateInputValue(value) {
+  return String(value || "").slice(0, 10);
 }
 
 const today = new Date();
@@ -234,13 +266,17 @@ const form = reactive({
   items: [{ description: "", quantity: 1, unitPrice: 0 }],
 });
 
-const selectedClient = computed(() =>
-  clients.value.find((client) => client.id === form.clientId)
-);
+const selectedClient = computed(() => {
+  const selectedId = String(form.clientId || "");
+  if (!selectedId) return null;
+  return clients.value.find((client) => String(client.id) === selectedId) || null;
+});
 
-const selectedTemplate = computed(() =>
-  templates.value.find((template) => template.id === form.templateId)
-);
+const selectedTemplate = computed(() => {
+  const selectedId = String(form.templateId || "");
+  if (!selectedId) return null;
+  return templates.value.find((template) => String(template.id) === selectedId) || null;
+});
 
 const subtotal = computed(() =>
   form.items.reduce((acc, item) => acc + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0)
@@ -297,13 +333,72 @@ async function fetchAutoNumber() {
   }
 }
 
+async function fetchInvoiceForEdit() {
+  if (!isEditMode.value) return;
+
+  try {
+    const data = await api.getInvoice(invoiceId.value);
+    const invoice = data?.invoice;
+    if (!invoice) {
+      formError.value = "Счет не найден.";
+      return;
+    }
+
+    currentInvoiceStatus.value = String(invoice.status || "draft");
+    originalInvoiceNumber.value = String(invoice.number || "");
+    templateAutofillEnabled.value = false;
+
+    form.clientId = String(invoice.clientId || "");
+    form.templateId = String(invoice.templateId || "");
+    form.number = String(invoice.number || "");
+
+    const normalizedCurrency = String(invoice.currency || "USD").toUpperCase();
+    form.currency = currencyOptions.includes(normalizedCurrency) ? normalizedCurrency : "USD";
+
+    form.issueDate = toDateInputValue(invoice.issueDate) || formatDate(today);
+    form.dueDate = toDateInputValue(invoice.dueDate) || formatDate(due);
+    form.notes = String(invoice.notes || "");
+
+    const subtotalValue = Number(invoice.subtotal || 0);
+    const taxValue = Number(invoice.tax || 0);
+    form.taxPercent = subtotalValue > 0 ? Number(((taxValue / subtotalValue) * 100).toFixed(2)) : 0;
+
+    const normalizedItems = Array.isArray(invoice.items)
+      ? invoice.items.map((item) => ({
+          description: String(item.description || ""),
+          quantity: Number(item.quantity || 0) || 1,
+          unitPrice: Number(item.unitPrice || 0),
+        }))
+      : [];
+
+    form.items = normalizedItems.length ? normalizedItems : [{ description: "", quantity: 1, unitPrice: 0 }];
+    initialTemplateId.value = String(form.templateId || "");
+  } catch (err) {
+    formError.value = err.message || "Не удалось загрузить счет для редактирования.";
+  }
+}
+
+watch(
+  () => form.templateId,
+  (nextTemplateId) => {
+    if (!isEditMode.value) return;
+    if (!initialTemplateId.value) return;
+    if (String(nextTemplateId || "") !== initialTemplateId.value) {
+      templateAutofillEnabled.value = true;
+    }
+  }
+);
+
 watch(selectedTemplate, (template) => {
   if (!template) return;
+  if (isEditMode.value && !templateAutofillEnabled.value) return;
+
   const data = template.data || {};
   const templateCurrency = normalizeString(data.currency).toUpperCase();
   form.currency = currencyOptions.includes(templateCurrency) ? templateCurrency : "USD";
   form.taxPercent = Number(data.taxPercent || 0);
   form.notes = data.notes || "";
+
   if (Array.isArray(data.items) && data.items.length > 0) {
     form.items = data.items.map((item) => ({
       description: item.description || "",
@@ -344,23 +439,52 @@ async function handleSave() {
     return;
   }
 
+  const payload = {
+    clientId: selectedClient.value?.id ?? form.clientId,
+    templateId: form.templateId || null,
+    currency: currencyOptions.includes(form.currency) ? form.currency : "USD",
+    issueDate: form.issueDate,
+    dueDate: form.dueDate,
+    notes: normalizeString(form.notes) || null,
+    taxRate: Number(form.taxPercent || 0) / 100,
+    items: filteredItems.map((item) => ({
+      description: normalizeString(item.description),
+      quantity: Number(item.quantity || 0),
+      unitPrice: Number(item.unitPrice || 0),
+    })),
+  };
+
   try {
+    if (isEditMode.value) {
+      if (currentInvoiceStatus.value !== "draft") {
+        formError.value = "Редактировать можно только счета со статусом draft.";
+        return;
+      }
+
+      const normalizedNumber = normalizeString(form.number) || originalInvoiceNumber.value;
+      if (!normalizedNumber) {
+        formError.value = "Укажите номер счета.";
+        return;
+      }
+
+      const updated = await api.updateInvoice(invoiceId.value, {
+        ...payload,
+        number: normalizedNumber,
+        status: currentInvoiceStatus.value,
+      });
+
+      const updatedNumber = updated?.invoice?.number || normalizedNumber;
+      sessionStorage.setItem("invoice_updated", updatedNumber);
+      router.push("/dashboard");
+      return;
+    }
+
     const created = await api.createInvoice({
-      clientId: form.clientId,
-      templateId: form.templateId || null,
+      ...payload,
       number: normalizeString(form.number) || null,
-      currency: currencyOptions.includes(form.currency) ? form.currency : "USD",
-      issueDate: form.issueDate,
-      dueDate: form.dueDate,
-      notes: normalizeString(form.notes) || null,
       status: "draft",
-      taxRate: Number(form.taxPercent || 0) / 100,
-      items: filteredItems.map((item) => ({
-        description: normalizeString(item.description),
-        quantity: Number(item.quantity || 0),
-        unitPrice: Number(item.unitPrice || 0),
-      })),
     });
+
     const createdNumber = created?.invoice?.number;
     if (createdNumber) {
       sessionStorage.setItem("invoice_created", createdNumber);
@@ -373,9 +497,14 @@ async function handleSave() {
   }
 }
 
-onMounted(() => {
-  fetchClients();
-  fetchTemplates();
+onMounted(async () => {
+  await Promise.all([fetchClients(), fetchTemplates()]);
+
+  if (isEditMode.value) {
+    await fetchInvoiceForEdit();
+    return;
+  }
+
   fetchAutoNumber();
 });
 </script>

@@ -89,7 +89,7 @@
     </UiCard>
 
     <div v-if="selectedClient" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="closeModal">
-      <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
+      <div class="liquid-glass-surface w-full max-w-lg rounded-3xl p-6 shadow-lg">
         <div class="flex items-start justify-between">
           <div>
             <h3 class="text-lg font-semibold">{{ selectedClient.name }}</h3>
