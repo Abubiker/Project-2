@@ -5,24 +5,24 @@
         <h1 class="text-2xl font-semibold">Новый счет</h1>
         <p class="text-slate">Данные клиента и шаблон подтянутся автоматически после выбора.</p>
       </div>
-      <button class="rounded-xl bg-ink text-white px-6 py-3 font-semibold" @click="handleSave">
+      <UiButton class-name="px-6" @click="handleSave">
         Сохранить счет
-      </button>
+      </UiButton>
     </header>
 
     <div class="grid gap-6 lg:grid-cols-[1.4fr,1fr]">
-      <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6 space-y-6">
+      <UiCard class-name="space-y-6">
         <div>
           <h2 class="text-lg font-semibold mb-3">Шаблон</h2>
           <div v-if="templatesLoading" class="text-slate">Загрузка шаблонов...</div>
           <div v-else-if="templatesError" class="text-coral">{{ templatesError }}</div>
           <div v-else>
-            <select v-model="form.templateId" class="w-full rounded-xl border border-black/10 px-4 py-3">
+            <UiSelect id="invoice-template" v-model="form.templateId">
               <option value="">Без шаблона</option>
               <option v-for="template in templates" :key="template.id" :value="template.id">
                 {{ template.name }}
               </option>
-            </select>
+            </UiSelect>
           </div>
         </div>
 
@@ -35,40 +35,51 @@
             <RouterLink to="/clients" class="text-ink font-semibold">Перейти к клиентам</RouterLink>
           </div>
           <div v-else>
-            <select
+            <UiSelect
+              id="invoice-client"
               v-model="form.clientId"
-              :class="inputClass(errors.clientId)"
-              class="w-full rounded-xl border px-4 py-3"
+              :invalid="Boolean(errors.clientId)"
+              :aria-invalid="Boolean(errors.clientId)"
+              :aria-describedby="errors.clientId ? 'invoice-client-error' : undefined"
             >
               <option value="">Выберите клиента</option>
               <option v-for="client in clients" :key="client.id" :value="client.id">
                 {{ client.name }} — {{ client.company || "Без компании" }}
               </option>
-            </select>
-            <p v-if="errors.clientId" class="mt-1 text-xs text-coral">{{ errors.clientId }}</p>
+            </UiSelect>
+            <p v-if="errors.clientId" id="invoice-client-error" class="mt-1 text-xs text-coral">{{ errors.clientId }}</p>
           </div>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="text-sm text-slate">Номер счета</label>
-            <input
+            <UiLabel for="invoice-number">Номер счета</UiLabel>
+            <UiInput
+              id="invoice-number"
               v-model="form.number"
               :placeholder="autoNumberPlaceholder"
-              class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3"
+              class-name="mt-2"
             />
           </div>
           <div>
-            <label class="text-sm text-slate">Валюта</label>
-            <input v-model="form.currency" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <UiLabel for="invoice-currency">Валюта</UiLabel>
+            <UiSelect id="invoice-currency" v-model="form.currency" class-name="mt-2">
+              <option
+                v-for="currencyOption in currencyOptions"
+                :key="currencyOption"
+                :value="currencyOption"
+              >
+                {{ currencyOption }}
+              </option>
+            </UiSelect>
           </div>
           <div>
-            <label class="text-sm text-slate">Дата выставления</label>
-            <input v-model="form.issueDate" type="date" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <UiLabel for="invoice-issue-date">Дата выставления</UiLabel>
+            <input id="invoice-issue-date" v-model="form.issueDate" type="date" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
           </div>
           <div>
-            <label class="text-sm text-slate">Срок оплаты</label>
-            <input v-model="form.dueDate" type="date" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <UiLabel for="invoice-due-date">Срок оплаты</UiLabel>
+            <input id="invoice-due-date" v-model="form.dueDate" type="date" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
           </div>
         </div>
 
@@ -80,11 +91,11 @@
               :key="index"
               class="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] items-center"
             >
-              <input
+              <UiInput
                 v-model="item.description"
                 placeholder="Описание услуги"
-                :class="inputClass(itemErrors[index]?.description)"
-                class="rounded-xl border px-4 py-3"
+                :aria-label="`Описание позиции ${index + 1}`"
+                :invalid="Boolean(itemErrors[index]?.description)"
               />
               <input
                 v-model.number="item.quantity"
@@ -92,7 +103,8 @@
                 min="0.01"
                 step="0.01"
                 placeholder="Кол-во"
-                :class="inputClass(itemErrors[index]?.quantity)"
+                :aria-label="`Количество позиции ${index + 1}`"
+                :class="getInputClass(itemErrors[index]?.quantity)"
                 class="rounded-xl border px-4 py-3"
               />
               <input
@@ -101,7 +113,8 @@
                 min="0"
                 step="0.01"
                 placeholder="Цена"
-                :class="inputClass(itemErrors[index]?.unitPrice)"
+                :aria-label="`Цена позиции ${index + 1}`"
+                :class="getInputClass(itemErrors[index]?.unitPrice)"
                 class="rounded-xl border px-4 py-3"
               />
               <div class="text-right text-sm text-slate">
@@ -109,6 +122,7 @@
               </div>
               <button
                 v-if="form.items.length > 1"
+                type="button"
                 class="text-xs text-coral md:col-span-4 text-left"
                 @click="removeItem(index)"
               >
@@ -117,21 +131,21 @@
             </div>
           </div>
           <p v-if="errors.items" class="mt-2 text-xs text-coral">{{ errors.items }}</p>
-          <button class="mt-4 text-sm text-ink font-semibold" @click="addItem">
+          <UiButton type="button" variant="ghost" class-name="mt-4 px-0 font-semibold text-ink" @click="addItem">
             + Добавить позицию
-          </button>
+          </UiButton>
         </div>
 
         <div>
-          <label class="text-sm text-slate">Комментарий</label>
-          <textarea v-model="form.notes" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3"></textarea>
+          <UiLabel for="invoice-notes">Комментарий</UiLabel>
+          <UiTextarea id="invoice-notes" v-model="form.notes" class-name="mt-2" />
         </div>
 
         <p v-if="formError" class="text-sm text-coral">{{ formError }}</p>
-      </section>
+      </UiCard>
 
       <aside class="space-y-6">
-        <div class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
+        <UiCard>
           <h3 class="text-lg font-semibold mb-3">Данные клиента</h3>
           <div v-if="!selectedClient" class="text-slate text-sm">
             Выберите клиента, чтобы увидеть детали.
@@ -144,9 +158,9 @@
             <div>{{ selectedClient.address || "Адрес не указан" }}</div>
             <div>{{ selectedClient.taxId || "ИНН не указан" }}</div>
           </div>
-        </div>
+        </UiCard>
 
-        <div class="bg-white rounded-3xl shadow-sm border border-black/5 p-6 space-y-4">
+        <UiCard class-name="space-y-4">
           <div class="flex items-center justify-between">
             <span class="text-sm text-slate">Подытог</span>
             <span class="font-semibold">{{ formatMoney(subtotal) }}</span>
@@ -169,7 +183,7 @@
             <span class="font-semibold">Итого</span>
             <span class="font-semibold">{{ formatMoney(totalAmount) }}</span>
           </div>
-        </div>
+        </UiCard>
       </aside>
     </div>
   </div>
@@ -179,6 +193,13 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { api } from "../api";
+import { getInputClass, normalizeString, validateRequired } from "../utils/form";
+import UiButton from "../components/ui/UiButton.vue";
+import UiCard from "../components/ui/UiCard.vue";
+import UiInput from "../components/ui/UiInput.vue";
+import UiLabel from "../components/ui/UiLabel.vue";
+import UiSelect from "../components/ui/UiSelect.vue";
+import UiTextarea from "../components/ui/UiTextarea.vue";
 
 const router = useRouter();
 const clients = ref([]);
@@ -191,6 +212,7 @@ const formError = ref("");
 const errors = ref({ clientId: "", items: "" });
 const itemErrors = ref([]);
 const autoNumberPlaceholder = ref("AUTO-INV-0001");
+const currencyOptions = ["USD", "EUR", "RUB"];
 
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
@@ -230,12 +252,6 @@ const totalAmount = computed(() => subtotal.value + taxAmount.value);
 
 function formatMoney(value) {
   return Number(value || 0).toFixed(2);
-}
-
-function inputClass(hasError) {
-  return hasError
-    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
-    : "border-black/10";
 }
 
 function addItem() {
@@ -284,7 +300,8 @@ async function fetchAutoNumber() {
 watch(selectedTemplate, (template) => {
   if (!template) return;
   const data = template.data || {};
-  form.currency = data.currency || form.currency;
+  const templateCurrency = normalizeString(data.currency).toUpperCase();
+  form.currency = currencyOptions.includes(templateCurrency) ? templateCurrency : "USD";
   form.taxPercent = Number(data.taxPercent || 0);
   form.notes = data.notes || "";
   if (Array.isArray(data.items) && data.items.length > 0) {
@@ -301,15 +318,13 @@ async function handleSave() {
   errors.value = { clientId: "", items: "" };
   itemErrors.value = [];
 
-  if (!form.clientId) {
-    errors.value.clientId = "Обязательно к заполнению.";
-  }
+  errors.value.clientId = validateRequired(form.clientId);
 
-  const filteredItems = form.items.filter((item) => item.description.trim());
+  const filteredItems = form.items.filter((item) => normalizeString(item.description));
 
   form.items.forEach((item, index) => {
     const itemError = { description: "", quantity: "", unitPrice: "" };
-    if (!item.description.trim()) itemError.description = "Заполните описание.";
+    if (!normalizeString(item.description)) itemError.description = "Заполните описание.";
     if (!item.quantity || Number(item.quantity) <= 0) itemError.quantity = "Укажите количество.";
     if (Number(item.unitPrice) < 0) itemError.unitPrice = "Цена не может быть отрицательной.";
     itemErrors.value[index] = itemError;
@@ -333,15 +348,15 @@ async function handleSave() {
     const created = await api.createInvoice({
       clientId: form.clientId,
       templateId: form.templateId || null,
-      number: form.number ? form.number.trim() : null,
-      currency: form.currency,
+      number: normalizeString(form.number) || null,
+      currency: currencyOptions.includes(form.currency) ? form.currency : "USD",
       issueDate: form.issueDate,
       dueDate: form.dueDate,
-      notes: form.notes || null,
+      notes: normalizeString(form.notes) || null,
       status: "draft",
       taxRate: Number(form.taxPercent || 0) / 100,
       items: filteredItems.map((item) => ({
-        description: item.description,
+        description: normalizeString(item.description),
         quantity: Number(item.quantity || 0),
         unitPrice: Number(item.unitPrice || 0),
       })),

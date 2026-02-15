@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-6xl mx-auto grid gap-8 lg:grid-cols-[1.2fr,1fr]">
-    <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
+    <UiCard>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-semibold">Шаблоны счетов</h2>
         <span class="text-sm text-slate">{{ templates.length }} всего</span>
@@ -14,7 +14,11 @@
           v-for="template in templates"
           :key="template.id"
           class="border border-black/5 rounded-2xl p-4 flex items-start justify-between cursor-pointer hover:border-black/10"
+          role="button"
+          tabindex="0"
+          :aria-label="`Открыть шаблон ${template.name}`"
           @click="openTemplate(template)"
+          @keydown="handleTemplateCardKeydown($event, template)"
         >
           <div>
             <div class="font-semibold">{{ template.name }}</div>
@@ -22,38 +26,45 @@
               Валюта: {{ template.data?.currency || "USD" }} · Налог: {{ template.data?.taxPercent || 0 }}%
             </div>
           </div>
-          <button class="text-xs text-coral" @click.stop="removeTemplate(template.id)">
+          <UiButton type="button" variant="ghost" size="sm" class-name="text-coral hover:text-coral" @click.stop="removeTemplate(template.id)">
             Удалить
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="templates.length === 0" class="text-slate text-sm">
           Пока нет шаблонов. Добавьте шаблон справа.
         </div>
       </div>
-    </section>
+    </UiCard>
 
-    <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
+    <UiCard>
       <h2 class="text-xl font-semibold mb-4">Новый шаблон</h2>
       <form @submit.prevent="handleCreate" class="space-y-4">
         <div>
-          <label class="text-sm text-slate">Название</label>
-          <input v-model="form.name" :class="inputClass(errors.name)" class="mt-2 w-full rounded-xl border px-4 py-3" />
-          <p v-if="errors.name" class="mt-1 text-xs text-coral">{{ errors.name }}</p>
+          <UiLabel for="template-name">Название</UiLabel>
+          <UiInput
+            id="template-name"
+            v-model="form.name"
+            class-name="mt-2"
+            :invalid="Boolean(errors.name)"
+            :aria-invalid="Boolean(errors.name)"
+            :aria-describedby="errors.name ? 'template-name-error' : undefined"
+          />
+          <p v-if="errors.name" id="template-name-error" class="mt-1 text-xs text-coral">{{ errors.name }}</p>
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="text-sm text-slate">Валюта</label>
-            <input v-model="form.currency" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <UiLabel for="template-currency">Валюта</UiLabel>
+            <UiInput id="template-currency" v-model="form.currency" class-name="mt-2" />
           </div>
           <div>
-            <label class="text-sm text-slate">Налог, %</label>
-            <input v-model.number="form.taxPercent" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
+            <UiLabel for="template-tax-percent">Налог, %</UiLabel>
+            <input id="template-tax-percent" v-model.number="form.taxPercent" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3" />
           </div>
         </div>
         <div>
-          <label class="text-sm text-slate">Комментарий</label>
-          <textarea v-model="form.notes" class="mt-2 w-full rounded-xl border border-black/10 px-4 py-3"></textarea>
+          <UiLabel for="template-notes">Комментарий</UiLabel>
+          <UiTextarea id="template-notes" v-model="form.notes" class-name="mt-2" />
         </div>
 
         <div>
@@ -70,9 +81,32 @@
               :key="index"
               class="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto] items-center"
             >
-              <input v-model="item.description" placeholder="Описание" :class="inputClass(itemErrors[index]?.description)" class="rounded-xl border px-4 py-3" />
-              <input v-model.number="item.quantity" type="number" min="0.01" step="0.01" placeholder="Кол-во" :class="inputClass(itemErrors[index]?.quantity)" class="rounded-xl border px-4 py-3" />
-              <input v-model.number="item.unitPrice" type="number" min="0" step="0.01" placeholder="Цена" :class="inputClass(itemErrors[index]?.unitPrice)" class="rounded-xl border px-4 py-3" />
+              <UiInput
+                v-model="item.description"
+                :aria-label="`Описание позиции ${index + 1}`"
+                placeholder="Описание"
+                :invalid="Boolean(itemErrors[index]?.description)"
+              />
+              <input
+                v-model.number="item.quantity"
+                type="number"
+                min="0.01"
+                step="0.01"
+                :aria-label="`Количество позиции ${index + 1}`"
+                placeholder="Кол-во"
+                :class="getInputClass(itemErrors[index]?.quantity)"
+                class="rounded-xl border px-4 py-3"
+              />
+              <input
+                v-model.number="item.unitPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                :aria-label="`Цена позиции ${index + 1}`"
+                placeholder="Цена"
+                :class="getInputClass(itemErrors[index]?.unitPrice)"
+                class="rounded-xl border px-4 py-3"
+              />
               <button
                 v-if="form.items.length > 1"
                 type="button"
@@ -84,17 +118,17 @@
             </div>
           </div>
           <p v-if="errors.items" class="mt-2 text-xs text-coral">{{ errors.items }}</p>
-          <button type="button" class="mt-3 text-sm text-ink font-semibold" @click="addItem">
+          <UiButton type="button" variant="ghost" class-name="mt-3 px-0 font-semibold text-ink" @click="addItem">
             + Добавить позицию
-          </button>
+          </UiButton>
         </div>
 
-        <button class="w-full rounded-xl bg-ink text-white py-3 font-semibold">
+        <UiButton type="submit" class-name="w-full">
           Сохранить шаблон
-        </button>
+        </UiButton>
         <p v-if="formError" class="text-sm text-coral">{{ formError }}</p>
       </form>
-    </section>
+    </UiCard>
 
     <div v-if="selectedTemplate" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="closeModal">
       <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-lg">
@@ -128,6 +162,12 @@
 import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { api } from "../api";
 import { pushToast } from "../toast";
+import { getInputClass, normalizeString, validateRequired } from "../utils/form";
+import UiButton from "../components/ui/UiButton.vue";
+import UiCard from "../components/ui/UiCard.vue";
+import UiInput from "../components/ui/UiInput.vue";
+import UiLabel from "../components/ui/UiLabel.vue";
+import UiTextarea from "../components/ui/UiTextarea.vue";
 
 const templates = ref([]);
 const loading = ref(false);
@@ -153,14 +193,14 @@ function resetForm() {
   form.items = [{ description: "", quantity: 1, unitPrice: 0 }];
 }
 
-function inputClass(hasError) {
-  return hasError
-    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
-    : "border-black/10";
-}
-
 function openTemplate(template) {
   selectedTemplate.value = template;
+}
+
+function handleTemplateCardKeydown(event, template) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  openTemplate(template);
 }
 
 function closeModal() {
@@ -198,14 +238,12 @@ async function handleCreate() {
   formError.value = "";
   errors.value = { name: "", items: "" };
   itemErrors.value = [];
-  if (!form.name.trim()) {
-    errors.value.name = "Обязательно к заполнению.";
-  }
+  errors.value.name = validateRequired(form.name);
 
-  const items = form.items.filter((item) => item.description.trim());
+  const items = form.items.filter((item) => normalizeString(item.description));
   form.items.forEach((item, index) => {
     const itemError = { description: "", quantity: "", unitPrice: "" };
-    if (!item.description.trim()) itemError.description = "Заполните описание.";
+    if (!normalizeString(item.description)) itemError.description = "Заполните описание.";
     if (!item.quantity || Number(item.quantity) <= 0) itemError.quantity = "Укажите количество.";
     if (Number(item.unitPrice) < 0) itemError.unitPrice = "Цена не может быть отрицательной.";
     itemErrors.value[index] = itemError;
@@ -225,13 +263,13 @@ async function handleCreate() {
 
   try {
     const payload = {
-      name: form.name.trim(),
+      name: normalizeString(form.name),
       data: {
-        currency: form.currency || "USD",
+        currency: normalizeString(form.currency) || "USD",
         taxPercent: Number(form.taxPercent || 0),
-        notes: form.notes || "",
+        notes: normalizeString(form.notes),
         items: items.map((item) => ({
-          description: item.description,
+          description: normalizeString(item.description),
           quantity: Number(item.quantity || 0),
           unitPrice: Number(item.unitPrice || 0),
         })),

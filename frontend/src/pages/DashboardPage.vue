@@ -13,7 +13,7 @@
       </RouterLink>
     </header>
 
-    <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
+    <section class="liquid-glass-surface liquid-glass-card p-6">
       <div class="flex flex-wrap gap-2">
         <button
           v-for="option in statusOptions"
@@ -26,23 +26,32 @@
         </button>
       </div>
     </section>
-    <section class="grid gap-6 lg:grid-cols-3">
-      <div class="rounded-3xl bg-white p-6 shadow-sm border border-black/5">
+    <section class="ui-stagger grid gap-6 lg:grid-cols-3">
+      <div class="liquid-glass-surface liquid-glass-card p-6">
         <div class="text-sm text-slate">Счетов</div>
         <div class="text-3xl font-semibold">{{ invoices.length }}</div>
       </div>
-      <div class="rounded-3xl bg-white p-6 shadow-sm border border-black/5">
+      <div class="liquid-glass-surface liquid-glass-card p-6">
         <div class="text-sm text-slate">Статус</div>
         <div class="text-3xl font-semibold">{{ statusSummary }}</div>
       </div>
-      <div class="rounded-3xl bg-white p-6 shadow-sm border border-black/5">
-        <div class="text-sm text-slate">Сумма (USD)</div>
-        <div class="text-3xl font-semibold">{{ totalAmount }}</div>
+      <div class="liquid-glass-surface liquid-glass-card p-6">
+        <div class="text-sm text-slate">Сумма по валютам</div>
+        <div class="mt-3 space-y-2">
+          <div
+            v-for="currency in supportedCurrencies"
+            :key="currency"
+            class="flex items-center justify-between text-sm"
+          >
+            <span class="text-slate">{{ currency }}</span>
+            <span class="font-semibold">{{ totalsByCurrency[currency] }}</span>
+          </div>
+        </div>
       </div>
     </section>
 
 
-    <section class="bg-white rounded-3xl shadow-sm border border-black/5 p-6">
+    <section class="liquid-glass-surface liquid-glass-card p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-semibold">Список счетов</h2>
       </div>
@@ -50,7 +59,7 @@
       <div v-if="loading" class="text-slate">Загрузка...</div>
       <div v-else-if="error" class="text-coral">{{ error }}</div>
 
-      <div v-else class="space-y-3">
+      <div v-else class="ui-stagger space-y-3">
         <div
           v-for="invoice in filteredInvoices"
           :key="invoice.id"
@@ -91,7 +100,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
 import { api, getToken } from "../api";
 import { pushToast } from "../toast";
@@ -109,10 +118,29 @@ const statusOptions = [
   { value: "paid", label: "Оплачен" },
   { value: "overdue", label: "Просрочен" },
 ];
+const supportedCurrencies = ["USD", "EUR", "RUB"];
 
-const totalAmount = computed(() => {
-  const sum = invoices.value.reduce((acc, invoice) => acc + Number(invoice.total || 0), 0);
-  return sum.toFixed(2);
+const totalsByCurrency = computed(() => {
+  const initialTotals = supportedCurrencies.reduce((acc, currency) => {
+    acc[currency] = "0.00";
+    return acc;
+  }, {});
+
+  const rawTotals = invoices.value.reduce((acc, invoice) => {
+    const currency = String(invoice.currency || "").toUpperCase();
+    if (!supportedCurrencies.includes(currency)) {
+      return acc;
+    }
+    acc[currency] = (acc[currency] || 0) + Number(invoice.total || 0);
+    return acc;
+  }, {});
+
+  supportedCurrencies.forEach((currency) => {
+    const totalValue = Number(rawTotals[currency] || 0);
+    initialTotals[currency] = totalValue.toFixed(2);
+  });
+
+  return initialTotals;
 });
 
 const statusSummary = computed(() => {
@@ -153,8 +181,6 @@ onMounted(async () => {
     loading.value = false;
   }
 });
-
-onUnmounted(() => {});
 
 async function downloadPdf(invoice) {
   actionMessage.value = "";

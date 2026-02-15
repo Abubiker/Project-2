@@ -1,33 +1,58 @@
 <template>
-  <div class="max-w-lg mx-auto bg-white rounded-3xl shadow-sm border border-black/5 p-8">
+  <UiCard class-name="mx-auto max-w-lg p-8">
     <h1 class="text-2xl font-semibold mb-2">Регистрация</h1>
     <p class="text-slate mb-6">Создайте аккаунт, чтобы начать выставлять счета.</p>
 
     <form @submit.prevent="handleRegister" class="space-y-4">
       <div>
-        <label class="text-sm text-slate">Имя</label>
-        <input v-model="name" type="text" :class="inputClass(errors.name)" class="mt-2 w-full rounded-xl border px-4 py-3" />
-        <p v-if="errors.name" class="mt-1 text-xs text-coral">{{ errors.name }}</p>
+        <UiLabel for="register-name">Имя</UiLabel>
+        <UiInput
+          id="register-name"
+          v-model="name"
+          type="text"
+          autocomplete="name"
+          class-name="mt-2"
+          :invalid="Boolean(errors.name)"
+          :aria-invalid="Boolean(errors.name)"
+          :aria-describedby="errors.name ? 'register-name-error' : undefined"
+        />
+        <p v-if="errors.name" id="register-name-error" class="mt-1 text-xs text-coral">{{ errors.name }}</p>
       </div>
       <div>
-        <label class="text-sm text-slate">Email</label>
-        <input v-model="email" type="email" :class="inputClass(errors.email)" class="mt-2 w-full rounded-xl border px-4 py-3" />
-        <p v-if="errors.email" class="mt-1 text-xs text-coral">{{ errors.email }}</p>
+        <UiLabel for="register-email">Email</UiLabel>
+        <UiInput
+          id="register-email"
+          v-model="email"
+          type="email"
+          autocomplete="email"
+          class-name="mt-2"
+          :invalid="Boolean(errors.email)"
+          :aria-invalid="Boolean(errors.email)"
+          :aria-describedby="errors.email ? 'register-email-error' : undefined"
+        />
+        <p v-if="errors.email" id="register-email-error" class="mt-1 text-xs text-coral">{{ errors.email }}</p>
       </div>
       <div>
-        <label class="text-sm text-slate">Пароль</label>
+        <UiLabel for="register-password">Пароль</UiLabel>
         <div class="relative mt-2">
-          <input
+          <UiInput
+            id="register-password"
             v-model="password"
             :type="showPassword ? 'text' : 'password'"
-            :class="inputClass(errors.password)"
-            class="w-full rounded-xl border px-4 py-3 pr-12"
+            autocomplete="new-password"
+            class-name="pr-12"
+            :invalid="Boolean(errors.password)"
+            :aria-invalid="Boolean(errors.password)"
+            :aria-describedby="errors.password ? 'register-password-error' : undefined"
           />
-          <button
+          <UiButton
             type="button"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate hover:text-ink"
-            @click="showPassword = !showPassword"
+            variant="ghost"
+            size="icon"
+            class-name="absolute right-1 top-1/2 -translate-y-1/2"
+            @click="handleTogglePassword"
             :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
+            :aria-pressed="showPassword"
           >
             <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
@@ -39,9 +64,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.88 5.09A9.974 9.974 0 0 1 12 5c4.477 0 8.268 2.943 9.542 7a9.993 9.993 0 0 1-4.222 5.135" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.228 6.228A9.993 9.993 0 0 0 2.458 12c1.274 4.057 5.065 7 9.542 7 1.246 0 2.442-.23 3.542-.65" />
             </svg>
-          </button>
+          </UiButton>
         </div>
-        <p v-if="errors.password" class="mt-1 text-xs text-coral">{{ errors.password }}</p>
+        <p v-if="errors.password" id="register-password-error" class="mt-1 text-xs text-coral">{{ errors.password }}</p>
         <div class="mt-2 space-y-1 text-xs">
           <div
             v-for="rule in passwordRules"
@@ -66,18 +91,30 @@
         </div>
       </div>
 
-      <button class="w-full rounded-xl bg-ink text-white py-3 font-semibold">
+      <UiButton type="submit" class-name="w-full">
         Создать аккаунт
-      </button>
+      </UiButton>
       <p v-if="error" class="text-sm text-coral">{{ error }}</p>
     </form>
-  </div>
+  </UiCard>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { api, setToken } from "../api";
+import {
+  getPasswordIssues,
+  getPasswordRuleStates,
+  getPasswordStrengthScore,
+  normalizeString,
+  validateEmail,
+  validateRequired,
+} from "../utils/form";
+import UiButton from "../components/ui/UiButton.vue";
+import UiCard from "../components/ui/UiCard.vue";
+import UiInput from "../components/ui/UiInput.vue";
+import UiLabel from "../components/ui/UiLabel.vue";
 
 const router = useRouter();
 const name = ref("");
@@ -87,25 +124,13 @@ const error = ref("");
 const errors = ref({ name: "", email: "", password: "" });
 const showPassword = ref(false);
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const handleTogglePassword = () => {
+  showPassword.value = !showPassword.value;
+};
 
-function inputClass(hasError) {
-  return hasError
-    ? "border-coral bg-coral/10 focus:outline-none focus:ring-2 focus:ring-coral/40"
-    : "border-black/10";
-}
+const passwordRules = computed(() => getPasswordRuleStates(password.value));
 
-const passwordRules = computed(() => {
-  const pwd = password.value || "";
-  return [
-    { label: "Минимум 8 символов", ok: pwd.length >= 8 },
-    { label: "1 заглавная буква (A-Z)", ok: /[A-Z]/.test(pwd) },
-    { label: "1 цифра (0-9)", ok: /[0-9]/.test(pwd) },
-    { label: "1 символ (!@#)", ok: /[^A-Za-z0-9]/.test(pwd) },
-  ];
-});
-
-const strengthScore = computed(() => passwordRules.value.filter((rule) => rule.ok).length);
+const strengthScore = computed(() => getPasswordStrengthScore(password.value));
 
 const strengthPercent = computed(() => Math.min(100, (strengthScore.value / 4) * 100));
 
@@ -131,41 +156,32 @@ const strengthTextClass = computed(() => {
 async function handleRegister() {
   error.value = "";
   errors.value = { name: "", email: "", password: "" };
-  if (!name.value.trim()) {
-    errors.value.name = "Обязательно к заполнению.";
-  }
-  if (!email.value.trim()) {
-    errors.value.email = "Обязательно к заполнению.";
-  } else if (!emailPattern.test(email.value.trim())) {
-    errors.value.email = "Укажите корректный email.";
-  }
-  const pwd = password.value;
-  const passwordIssues = [];
-  if (!pwd.trim()) {
-    errors.value.password = "Обязательно к заполнению.";
+  errors.value.name = validateRequired(name.value);
+  errors.value.email = validateEmail(email.value, { required: true });
+
+  const passwordRequiredError = validateRequired(password.value);
+  if (passwordRequiredError) {
+    errors.value.password = passwordRequiredError;
   } else {
-    if (pwd.length < 8) passwordIssues.push("минимум 8 символов");
-    if (!/[A-Z]/.test(pwd)) passwordIssues.push("1 заглавная буква");
-    if (!/[0-9]/.test(pwd)) passwordIssues.push("1 цифра");
-    if (!/[^A-Za-z0-9]/.test(pwd)) passwordIssues.push("1 символ");
+    const passwordIssues = getPasswordIssues(password.value);
     if (passwordIssues.length) {
       errors.value.password = `Пароль должен содержать: ${passwordIssues.join(", ")}.`;
     }
   }
-  if (errors.value.name || errors.value.email || errors.value.password) {
-    return;
-  }
+  if (errors.value.name || errors.value.email || errors.value.password) return;
+
   try {
     const response = await api.register({
-      name: name.value.trim(),
-      email: email.value.trim().toLowerCase(),
+      name: normalizeString(name.value),
+      email: normalizeString(email.value).toLowerCase(),
       password: password.value,
     });
     setToken(response.token);
     router.push("/dashboard");
   } catch (err) {
-    error.value = err.message;
-    if (err.message.toLowerCase().includes("email already registered")) {
+    const message = String(err?.message || "Ошибка регистрации");
+    error.value = message;
+    if (message.toLowerCase().includes("email already registered")) {
       errors.value.email = "Этот email уже зарегистрирован.";
     }
   }

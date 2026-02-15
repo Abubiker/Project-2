@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-sand">
-    <header class="px-6 py-5 border-b border-black/10 bg-white/70 backdrop-blur">
+    <header class="liquid-glass-surface liquid-glass-toolbar px-6 py-5">
       <div class="max-w-6xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-4">
           <RouterLink to="/dashboard" class="flex items-center">
@@ -11,16 +11,22 @@
             />
           </RouterLink>
           <div v-if="isAuthed" ref="searchRef" class="relative w-full max-w-sm">
+            <label for="global-search" class="sr-only">Глобальный поиск</label>
             <input
+              id="global-search"
               v-model="searchTerm"
               type="text"
               placeholder="Поиск по счетам, клиентам, шаблонам"
+              aria-label="Поиск по счетам, клиентам и шаблонам"
+              :aria-expanded="searchOpen"
+              aria-haspopup="listbox"
               class="w-full rounded-xl border border-black/10 bg-white px-4 py-2 text-sm"
               @focus="openSearch"
             />
             <div
               v-if="searchOpen"
-              class="absolute left-0 right-0 mt-2 rounded-2xl border border-black/10 bg-white shadow-lg"
+              role="listbox"
+              class="liquid-glass-surface absolute left-0 right-0 mt-2 rounded-2xl shadow-lg"
             >
               <div v-if="!searchTerm.trim()" class="px-4 py-3 text-sm text-slate">
                 Введите запрос для поиска.
@@ -32,6 +38,9 @@
                 <button
                   v-for="result in searchResults"
                   :key="result.key"
+                  type="button"
+                  role="option"
+                  :aria-label="`${result.section}: ${result.title}`"
                   class="w-full text-left px-4 py-2 hover:bg-black/5"
                   @mousedown.prevent
                   @click="goToResult(result)"
@@ -83,13 +92,13 @@
     </header>
 
     <main class="px-6 py-10">
-      <div class="page-enter">
+      <div class="page-enter ui-fade-slide">
         <RouterView />
       </div>
     </main>
 
     <div v-if="showLogoutConfirm" class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" @click.self="showLogoutConfirm = false">
-      <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg">
+      <div class="liquid-glass-surface w-full max-w-md rounded-3xl p-6 shadow-lg">
         <h3 class="text-lg font-semibold mb-2">Выйти из аккаунта?</h3>
         <p class="text-sm text-slate mb-6">Вы уверены, что хотите выйти?</p>
         <div class="flex items-center justify-end gap-3">
@@ -119,8 +128,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import { RouterLink, RouterView } from "vue-router";
+import { RouterLink, RouterView, useRouter } from "vue-router";
 import { api, clearToken, getToken } from "./api";
 import { toastState, removeToast } from "./toast";
 
@@ -134,6 +142,11 @@ const searchRef = ref(null);
 const invoices = ref([]);
 const clients = ref([]);
 const templates = ref([]);
+const toastToneClasses = {
+  danger: "bg-coral text-white",
+  success: "bg-mint text-white",
+  info: "bg-ink text-white",
+};
 
 const userInitials = computed(() => {
   if (!user.value) return "IG";
@@ -144,9 +157,10 @@ const userInitials = computed(() => {
 });
 
 function navLinkClass(isActive) {
-  return isActive
+  const stateClass = isActive
     ? "text-ink font-semibold border-b-2 border-ink pb-1"
     : "text-slate hover:text-ink";
+  return `${stateClass} nav-link-animated`;
 }
 
 function syncAuth() {
@@ -154,12 +168,13 @@ function syncAuth() {
   if (isAuthed.value) {
     fetchUser();
     fetchSearchData();
-  } else {
-    user.value = null;
-    invoices.value = [];
-    clients.value = [];
-    templates.value = [];
+    return;
   }
+
+  user.value = null;
+  invoices.value = [];
+  clients.value = [];
+  templates.value = [];
 }
 
 function logout() {
@@ -173,14 +188,7 @@ function confirmLogout() {
 }
 
 function toastClass(tone) {
-  switch (tone) {
-    case "danger":
-      return "bg-coral text-white";
-    case "success":
-      return "bg-mint text-white";
-    default:
-      return "bg-ink text-white";
-  }
+  return toastToneClasses[tone] || toastToneClasses.info;
 }
 
 async function fetchUser() {
