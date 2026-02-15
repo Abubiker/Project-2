@@ -6,7 +6,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { cn } from "../../utils/cn";
+import { cn } from "@/utils/cn";
 
 const props = defineProps({
   className: { type: String, default: "" },
